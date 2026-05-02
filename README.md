@@ -4,7 +4,7 @@
 **Certified Data Removal from Machine Learning Models (ICML 2020)**  
 https://arxiv.org/abs/1911.03030
 
-**Demo:** `certified_removal_poc.html` (open directly in any browser, no server required)
+**Demo:** `index.html` (open directly in any browser, no server required)
 
 ---
 
@@ -30,13 +30,11 @@ This demo implements the full pipeline with real matrix computations running in 
 
 During training, noise is injected into the objective:
 
-\[
 L_b(w; D) = L(w; D) + b^T w
-\]
 
 where:
 
-- \( b \sim \mathcal{N}(0, \sigma^2 I) \)
+- b ~ N(0, σ^2 I)
 
 This perturbation ensures that individual data points have bounded and controllable influence on the final model.
 
@@ -46,16 +44,14 @@ In the demo, this is executed when you click **Train Model**.
 
 ### 2. Certified Data Removal (Section 3.2, Equation 6)
 
-To remove a set of points \( S \), the model is updated using:
+To remove a set of points S, the model is updated using:
 
-\[
-w^{-} = w^{*} + H^{-1} \Delta
-\]
+w^- = w* + H^-1 Δ
 
 where:
 
-- \( H \) is the Hessian of the loss at \( w^{*} \)
-- \( \Delta = \sum_{i \in S} \nabla \ell_i(w^{*}) + \lambda |S| w^{*} \)
+- H is the Hessian of the loss at w*
+- Δ = sum(i in S) grad ℓ_i(w*) + λ|S| w*
 
 This replaces retraining with a single Newton update step.
 
@@ -67,23 +63,17 @@ The paper provides formal guarantees on how much the model can change after remo
 
 Worst-case bound (Theorem 1):
 
-\[
-\frac{4 \gamma C^2}{\lambda^2 (n - 1)}
-\]
+4 γ C^2 / (λ^2 (n - 1))
 
 Data-dependent bound (Corollary 1):
 
-\[
-\gamma \|X'\|_2 \|H^{-1}\Delta\|_2 \|X'H^{-1}\Delta\|_2
-\]
+γ ||X'||_2 * ||H^-1 Δ||_2 * ||X' H^-1 Δ||_2
 
 The system tracks these bounds in real time.
 
 The privacy budget is:
 
-\[
-\epsilon \sigma / c, \quad c = \sqrt{2 \ln(1.5 / \delta)}
-\]
+epsilon * sigma / c, where c = sqrt(2 ln(1.5 / delta))
 
 If the budget is exceeded, full retraining is triggered.
 
@@ -110,13 +100,13 @@ Based on Section 4.1 of the paper.
 
 Controls:
 
-- \( \lambda \): L2 regularization strength
-- \( \sigma \): perturbation noise level
+- lambda: L2 regularization strength
+- sigma: perturbation noise level
 
 Key insight:
 
-- Higher \( \lambda \) increases stability and allows more removals
-- Higher \( \sigma \) increases privacy budget but reduces accuracy
+- Higher lambda increases stability and allows more removals
+- Higher sigma increases privacy budget but reduces accuracy
 
 ---
 
@@ -138,9 +128,7 @@ Worst-case bounds are extremely loose, while data-dependent bounds closely match
 
 Each training point is ranked by:
 
-\[
-\|H^{-1} \Delta\|
-\]
+||H^-1 Δ||
 
 Interpretation:
 
@@ -191,9 +179,7 @@ Uses a DP-trained CNN as feature extractor.
 
 Privacy composition:
 
-\[
-\epsilon_{total} = \epsilon_{DP} + \epsilon_{CR}
-\]
+epsilon_total = epsilon_DP + epsilon_CR
 
 Observations:
 
@@ -211,9 +197,7 @@ Workflow:
 1. Train model with perturbed loss (Algorithm 1)
 2. Select points to remove
 3. Apply Newton update:
-   \[
-   w^{-} = w^{*} + H^{-1} \Delta
-   \]
+   w^- = w* + H^-1 Δ
 4. Update model instantly
 5. Track privacy budget usage
 
@@ -225,7 +209,7 @@ If budget is exceeded, full retraining is triggered.
 
 Every removal is logged with:
 
-- Newton update norm \( \|H^{-1}\Delta\| \)
+- Newton update norm ||H^-1 Δ||
 - Data-dependent bound contribution
 - Worst-case bound comparison
 - Cumulative privacy budget usage
