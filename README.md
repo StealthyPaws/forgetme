@@ -1,8 +1,8 @@
-# FORGET: Certified Data Removal POC
+# FORGETME: Certified Data Removal POC
 
 **Paper:** Guo, Goldstein, Hannun, Van der Maaten  
 **Certified Data Removal from Machine Learning Models (ICML 2020)**  
-https://arxiv.org/abs/1911.03030
+https://proceedings.mlr.press/v119/guo20c/guo20c.pdf
 
 **Demo:** `index.html` (open directly in any browser, no server required)
 
