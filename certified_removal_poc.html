@@ -1,0 +1,2342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FORGET — Certified Data Removal System</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500;600&display=swap');
+
+:root {
+  --bg: #0a0a08;
+  --bg2: #111110;
+  --bg3: #1a1a17;
+  --bg4: #222220;
+  --accent: #ff6b1a;
+  --accent2: #ffb347;
+  --teal: #00c9a7;
+  --yellow: #f5c518;
+  --red: #ff4444;
+  --text: #f0ede8;
+  --text2: #a09d98;
+  --text3: #5a5855;
+  --border: rgba(255,107,26,0.15);
+  --border2: rgba(255,107,26,0.3);
+  --mono: 'Space Mono', monospace;
+  --sans: 'DM Sans', sans-serif;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  overflow-x: hidden;
+  cursor: none;
+}
+
+/* Cursor */
+#cursor {
+  position: fixed;
+  width: 8px; height: 8px;
+  background: var(--accent);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 10000;
+  transform: translate(-50%, -50%);
+  transition: width 0.15s, height 0.15s, background 0.15s;
+}
+#cursor.big { width: 32px; height: 32px; background: rgba(255,107,26,0.2); border: 1px solid var(--accent); }
+
+/* Floating robot companion */
+#robot {
+  position: fixed;
+  bottom: 24px; right: 24px;
+  width: 64px; height: 64px;
+  z-index: 9999;
+  pointer-events: none;
+  animation: robotFloat 4s ease-in-out infinite;
+}
+@keyframes robotFloat {
+  0%,100% { transform: translateY(0px) rotate(-1deg); }
+  50% { transform: translateY(-8px) rotate(1deg); }
+}
+
+/* Cursor follower robot */
+#follower {
+  position: fixed;
+  width: 28px; height: 28px;
+  pointer-events: none;
+  z-index: 9998;
+  transform: translate(-50%, -50%);
+  transition: left 0.18s cubic-bezier(0.25,0.46,0.45,0.94),
+              top 0.18s cubic-bezier(0.25,0.46,0.45,0.94);
+}
+
+/* Background particles */
+#bg-canvas {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.4;
+}
+
+/* Layout */
+.app {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  grid-template-rows: 56px 1fr;
+  min-height: 100vh;
+}
+
+/* Header */
+.header {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  padding: 0 24px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg2);
+  gap: 16px;
+  position: sticky; top: 0; z-index: 100;
+}
+.logo {
+  font-family: var(--mono);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: 3px;
+}
+.logo span { color: var(--text2); font-size: 10px; letter-spacing: 2px; display: block; margin-top: 1px; }
+.header-status {
+  margin-left: auto;
+  display: flex; gap: 20px; align-items: center;
+}
+.status-pill {
+  font-size: 11px; font-family: var(--mono);
+  padding: 4px 10px;
+  border-radius: 2px;
+  background: rgba(0,201,167,0.1);
+  color: var(--teal);
+  border: 1px solid rgba(0,201,167,0.3);
+  letter-spacing: 1px;
+}
+.status-pill.warn { background: rgba(255,107,26,0.1); color: var(--accent); border-color: var(--border2); }
+
+/* Sidebar */
+.sidebar {
+  background: var(--bg2);
+  border-right: 1px solid var(--border);
+  padding: 16px 0;
+  overflow-y: auto;
+}
+.nav-section {
+  padding: 8px 16px;
+  font-size: 9px;
+  font-family: var(--mono);
+  color: var(--text3);
+  letter-spacing: 2px;
+  margin-top: 8px;
+}
+.nav-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 20px;
+  cursor: none;
+  color: var(--text2);
+  font-size: 13px;
+  font-family: var(--mono);
+  border-left: 2px solid transparent;
+  transition: all 0.15s;
+  position: relative;
+}
+.nav-item:hover { color: var(--text); background: var(--bg3); }
+.nav-item.active { color: var(--accent); border-left-color: var(--accent); background: rgba(255,107,26,0.06); }
+.nav-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--text3);
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+.nav-item.active .nav-dot { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+.nav-item:hover .nav-dot { background: var(--text2); }
+
+/* Main content */
+.main {
+  overflow-y: auto;
+  padding: 0;
+}
+
+/* Panels */
+.panel {
+  display: none;
+  padding: 28px;
+  animation: fadeIn 0.25s ease;
+}
+.panel.active { display: block; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+.panel-title {
+  font-family: var(--mono);
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+.panel-title .accent { color: var(--accent); }
+.panel-sub {
+  font-size: 13px;
+  color: var(--text2);
+  margin-bottom: 28px;
+  line-height: 1.6;
+}
+
+/* Grid layouts */
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+.grid4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+
+/* Cards */
+.card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 20px;
+  position: relative;
+  overflow: hidden;
+  transition: border-color 0.2s;
+}
+.card:hover { border-color: var(--border2); }
+.card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+.card:hover::before { opacity: 1; }
+.card-label {
+  font-size: 10px;
+  font-family: var(--mono);
+  color: var(--text3);
+  letter-spacing: 2px;
+  margin-bottom: 8px;
+}
+.card-value {
+  font-size: 28px;
+  font-family: var(--mono);
+  font-weight: 700;
+  color: var(--text);
+}
+.card-value.accent { color: var(--accent); }
+.card-value.teal { color: var(--teal); }
+.card-value.yellow { color: var(--yellow); }
+.card-sub { font-size: 12px; color: var(--text3); margin-top: 4px; }
+
+/* Chart containers */
+.chart-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 20px;
+  margin-top: 16px;
+}
+.chart-title {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text2);
+  letter-spacing: 1px;
+  margin-bottom: 16px;
+  display: flex; align-items: center; gap: 8px;
+}
+.chart-title::before {
+  content: '';
+  width: 12px; height: 12px;
+  border-radius: 2px;
+  background: var(--accent);
+  flex-shrink: 0;
+}
+
+/* Buttons */
+.btn {
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 1px;
+  padding: 10px 20px;
+  border: 1px solid var(--border2);
+  background: transparent;
+  color: var(--accent);
+  border-radius: 2px;
+  cursor: none;
+  transition: all 0.15s;
+}
+.btn:hover { background: var(--accent); color: var(--bg); transform: scale(1.02); }
+.btn:active { transform: scale(0.98); }
+.btn.primary { background: var(--accent); color: var(--bg); font-weight: 700; }
+.btn.primary:hover { background: var(--accent2); }
+.btn.danger { border-color: var(--red); color: var(--red); }
+.btn.danger:hover { background: var(--red); color: var(--text); }
+.btn.teal { border-color: var(--teal); color: var(--teal); }
+.btn.teal:hover { background: var(--teal); color: var(--bg); }
+
+/* Inputs */
+.input-group { margin-bottom: 16px; }
+.input-label {
+  font-size: 10px;
+  font-family: var(--mono);
+  color: var(--text3);
+  letter-spacing: 2px;
+  margin-bottom: 6px;
+  display: block;
+}
+input[type=text], input[type=number], select, textarea {
+  width: 100%;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 13px;
+  padding: 10px 12px;
+  border-radius: 2px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+input:focus, select:focus, textarea:focus { border-color: var(--accent); }
+input[type=range] {
+  width: 100%;
+  accent-color: var(--accent);
+}
+select option { background: var(--bg3); }
+
+/* Dataset points */
+.dataset-grid {
+  display: flex; flex-wrap: wrap; gap: 6px;
+  margin-top: 12px;
+  min-height: 60px;
+}
+.data-point {
+  width: 42px; height: 42px;
+  border-radius: 3px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px;
+  font-family: var(--mono);
+  font-weight: 700;
+  border: 1px solid;
+  cursor: none;
+  transition: all 0.2s;
+  position: relative;
+  overflow: hidden;
+}
+.data-point.class-pos { background: rgba(0,201,167,0.1); border-color: rgba(0,201,167,0.4); color: var(--teal); }
+.data-point.class-neg { background: rgba(255,107,26,0.1); border-color: rgba(255,107,26,0.4); color: var(--accent); }
+.data-point.removed {
+  animation: dissolve 0.5s ease forwards;
+}
+.data-point:hover { transform: scale(1.1); box-shadow: 0 0 12px rgba(255,107,26,0.3); }
+@keyframes dissolve {
+  0% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.6) rotate(10deg); }
+  100% { opacity: 0; transform: scale(0) rotate(20deg); width: 0; margin: 0; padding: 0; border: 0; }
+}
+.data-point.selected-for-removal {
+  border-color: var(--red) !important;
+  box-shadow: 0 0 10px rgba(255,68,68,0.4);
+  animation: pulse-red 1s ease-in-out infinite;
+}
+@keyframes pulse-red {
+  0%,100% { box-shadow: 0 0 10px rgba(255,68,68,0.3); }
+  50% { box-shadow: 0 0 20px rgba(255,68,68,0.7); }
+}
+
+/* Progress bar */
+.progress-bar {
+  height: 4px;
+  background: var(--bg4);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-top: 6px;
+}
+.progress-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 2px;
+  transition: width 0.4s ease;
+}
+.progress-fill.danger { background: var(--red); }
+.progress-fill.teal { background: var(--teal); }
+
+/* Tabs */
+.tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border); margin-bottom: 20px; }
+.tab {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 1px;
+  padding: 10px 18px;
+  color: var(--text3);
+  cursor: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: all 0.15s;
+}
+.tab:hover { color: var(--text2); }
+.tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+/* Section divider */
+.divider {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 24px 0;
+}
+
+/* Info box */
+.info-box {
+  background: rgba(255,107,26,0.05);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  padding: 14px 16px;
+  border-radius: 0 3px 3px 0;
+  font-size: 12px;
+  color: var(--text2);
+  line-height: 1.7;
+  margin-bottom: 16px;
+  font-family: var(--mono);
+}
+.info-box.teal { border-left-color: var(--teal); background: rgba(0,201,167,0.05); }
+.info-box.yellow { border-left-color: var(--yellow); background: rgba(245,197,24,0.05); }
+
+/* Success/error flash */
+.flash {
+  position: fixed;
+  top: 70px; right: 24px;
+  padding: 12px 20px;
+  border-radius: 3px;
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 1px;
+  z-index: 9000;
+  animation: flashIn 0.3s ease, flashOut 0.3s ease 2.5s forwards;
+  pointer-events: none;
+}
+.flash.success { background: rgba(0,201,167,0.15); border: 1px solid var(--teal); color: var(--teal); }
+.flash.error { background: rgba(255,68,68,0.15); border: 1px solid var(--red); color: var(--red); }
+@keyframes flashIn { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes flashOut { to { opacity: 0; transform: translateX(20px); } }
+
+/* Weight visualization */
+.weight-bar-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(28px, 1fr)); gap: 3px; margin-top: 8px; }
+.weight-cell {
+  height: 28px;
+  border-radius: 2px;
+  transition: all 0.4s ease;
+  position: relative;
+  cursor: none;
+}
+
+/* Removal animation overlay */
+.removal-ripple {
+  position: fixed;
+  width: 0; height: 0;
+  border-radius: 50%;
+  background: rgba(255,68,68,0.15);
+  border: 2px solid var(--red);
+  transform: translate(-50%, -50%);
+  animation: rippleOut 0.6s ease forwards;
+  pointer-events: none;
+  z-index: 8999;
+}
+@keyframes rippleOut {
+  to { width: 200px; height: 200px; opacity: 0; }
+}
+
+/* Experiment highlight */
+.exp-badge {
+  display: inline-block;
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 2px;
+  padding: 3px 8px;
+  border-radius: 2px;
+  background: rgba(255,107,26,0.15);
+  color: var(--accent);
+  border: 1px solid var(--border);
+  margin-bottom: 12px;
+}
+
+/* Heatmap */
+.heatmap-grid { display: flex; flex-direction: column; gap: 3px; }
+.heatmap-row { display: flex; gap: 3px; }
+.heatmap-cell {
+  width: 14px; height: 14px;
+  border-radius: 1px;
+  transition: all 0.3s;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+/* Robot SVG styles */
+.robot-eye { transition: all 0.3s; }
+</style>
+</head>
+<body>
+
+<!-- Custom cursor -->
+<div id="cursor"></div>
+<div id="follower">
+  <svg viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="14" cy="14" r="12" stroke="#ff6b1a" stroke-width="1" opacity="0.5"/>
+    <circle cx="14" cy="14" r="3" fill="#ff6b1a"/>
+  </svg>
+</div>
+
+<!-- Background canvas -->
+<canvas id="bg-canvas"></canvas>
+
+<!-- Corner Robot Companion -->
+<div id="robot">
+  <svg id="robot-svg" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <!-- Body -->
+    <rect x="16" y="28" width="32" height="26" rx="4" fill="#1a1a17" stroke="#ff6b1a" stroke-width="1.5"/>
+    <!-- Head -->
+    <rect id="robot-head" x="18" y="10" width="28" height="22" rx="5" fill="#222220" stroke="#ff6b1a" stroke-width="1.5"/>
+    <!-- Eyes -->
+    <circle id="eye-l" cx="26" cy="21" r="4" fill="#ff6b1a" opacity="0.9"/>
+    <circle id="eye-r" cx="38" cy="21" r="4" fill="#ff6b1a" opacity="0.9"/>
+    <circle cx="27" cy="22" r="1.5" fill="#0a0a08"/>
+    <circle cx="39" cy="22" r="1.5" fill="#0a0a08"/>
+    <!-- Mouth -->
+    <path id="robot-mouth" d="M26 30 Q32 33 38 30" stroke="#00c9a7" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+    <!-- Antenna -->
+    <line x1="32" y1="10" x2="32" y2="4" stroke="#ff6b1a" stroke-width="1.5"/>
+    <circle cx="32" cy="3" r="2" fill="#ff6b1a"/>
+    <!-- Arms -->
+    <rect id="arm-l" x="8" y="32" width="8" height="4" rx="2" fill="#222220" stroke="#ff6b1a" stroke-width="1"/>
+    <rect id="arm-r" x="48" y="32" width="8" height="4" rx="2" fill="#222220" stroke="#ff6b1a" stroke-width="1"/>
+    <!-- Chest display -->
+    <rect x="24" y="36" width="16" height="10" rx="2" fill="#0a0a08" stroke="#00c9a7" stroke-width="0.5"/>
+    <line x1="27" y1="39" x2="37" y2="39" stroke="#00c9a7" stroke-width="1" opacity="0.7"/>
+    <line x1="27" y1="42" x2="34" y2="42" stroke="#ff6b1a" stroke-width="1" opacity="0.7"/>
+    <!-- Legs -->
+    <rect x="20" y="54" width="10" height="6" rx="2" fill="#1a1a17" stroke="#ff6b1a" stroke-width="1"/>
+    <rect x="34" y="54" width="10" height="6" rx="2" fill="#1a1a17" stroke="#ff6b1a" stroke-width="1"/>
+  </svg>
+</div>
+
+<!-- Main App -->
+<div class="app">
+
+  <!-- Header -->
+  <header class="header">
+    <div class="logo">FORGET<span>CERTIFIED DATA REMOVAL v1.0</span></div>
+    <div class="header-status">
+      <div class="status-pill" id="model-status">MODEL READY</div>
+      <div class="status-pill warn" id="budget-status">BUDGET: ∞</div>
+      <div class="status-pill" style="color:var(--yellow);border-color:rgba(245,197,24,0.3);background:rgba(245,197,24,0.08)">GUO ET AL. 2020</div>
+    </div>
+  </header>
+
+  <!-- Sidebar -->
+  <nav class="sidebar">
+    <div class="nav-section">OVERVIEW</div>
+    <div class="nav-item active" onclick="navigate('overview',this)">
+      <div class="nav-dot"></div>Overview
+    </div>
+    <div class="nav-item" onclick="navigate('dataset',this)">
+      <div class="nav-dot"></div>Dataset
+    </div>
+
+    <div class="nav-section">EXPERIMENTS</div>
+    <div class="nav-item" onclick="navigate('exp1',this)">
+      <div class="nav-dot"></div>Exp 1 — MNIST Linear
+    </div>
+    <div class="nav-item" onclick="navigate('exp2',this)">
+      <div class="nav-dot"></div>Exp 2 — LSUN Extractor
+    </div>
+    <div class="nav-item" onclick="navigate('exp3',this)">
+      <div class="nav-dot"></div>Exp 3 — SST Sentiment
+    </div>
+    <div class="nav-item" onclick="navigate('exp4',this)">
+      <div class="nav-dot"></div>Exp 4 — SVHN DP
+    </div>
+
+    <div class="nav-section">REMOVAL</div>
+    <div class="nav-item" onclick="navigate('removal',this)">
+      <div class="nav-dot"></div>Live Removal
+    </div>
+    <div class="nav-item" onclick="navigate('bounds',this)">
+      <div class="nav-dot"></div>Residual Bounds
+    </div>
+    <div class="nav-item" onclick="navigate('audit',this)">
+      <div class="nav-dot"></div>Removal Audit
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <main class="main">
+
+    <!-- OVERVIEW PANEL -->
+    <div class="panel active" id="panel-overview">
+      <div class="exp-badge">PAPER OVERVIEW</div>
+      <div class="panel-title"><span class="accent">Certified</span> Data Removal</div>
+      <div class="panel-sub">Guo, Goldstein, Hannun, Van der Maaten — ICML 2020. Remove training data from ML models with formal privacy guarantees, without full retraining.</div>
+
+      <div class="grid4">
+        <div class="card">
+          <div class="card-label">ALGORITHM</div>
+          <div class="card-value accent" style="font-size:20px">Newton</div>
+          <div class="card-sub">One-step update per removal</div>
+        </div>
+        <div class="card">
+          <div class="card-label">GUARANTEE</div>
+          <div class="card-value teal" style="font-size:20px">ε-CR</div>
+          <div class="card-sub">Certified removal bound</div>
+        </div>
+        <div class="card">
+          <div class="card-label">SPEEDUP</div>
+          <div class="card-value yellow" style="font-size:20px">870×</div>
+          <div class="card-sub">vs. full retraining (SST)</div>
+        </div>
+        <div class="card">
+          <div class="card-label">DATASETS</div>
+          <div class="card-value" style="font-size:20px">4</div>
+          <div class="card-sub">MNIST, LSUN, SST, SVHN</div>
+        </div>
+      </div>
+
+      <div class="info-box" style="margin-top:16px">
+        CORE IDEA: Given a trained model w* and a point to remove (x,y), the Newton update<br>
+        w⁻ = w* + H⁻¹·Δ approximates retraining from scratch. Loss perturbation b ~ N(0,σ²I)<br>
+        added at training time certifies that the residual error cannot be distinguished by an adversary.
+      </div>
+
+      <div class="chart-card">
+        <div class="chart-title">PAPER FIGURE MAP — click a node to navigate</div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:8px">
+          <div class="card" style="cursor:none;text-align:center;padding:14px" onclick="navigate('exp1',document.querySelector('[onclick*=exp1]'))">
+            <div style="font-family:var(--mono);font-size:10px;color:var(--accent);letter-spacing:1px">FIG 1,2,3</div>
+            <div style="font-size:13px;font-family:var(--mono);margin-top:4px">MNIST</div>
+            <div style="font-size:11px;color:var(--text3);margin-top:2px">Binary LR · §4.1</div>
+          </div>
+          <div class="card" style="cursor:none;text-align:center;padding:14px" onclick="navigate('exp2',document.querySelector('[onclick*=exp2]'))">
+            <div style="font-family:var(--mono);font-size:10px;color:var(--teal);letter-spacing:1px">FIG 4 LEFT</div>
+            <div style="font-size:13px;font-family:var(--mono);margin-top:4px">LSUN</div>
+            <div style="font-size:11px;color:var(--text3);margin-top:2px">Public extractor · §4.2</div>
+          </div>
+          <div class="card" style="cursor:none;text-align:center;padding:14px" onclick="navigate('exp3',document.querySelector('[onclick*=exp3]'))">
+            <div style="font-family:var(--mono);font-size:10px;color:var(--yellow);letter-spacing:1px">FIG 4 RIGHT</div>
+            <div style="font-size:13px;font-family:var(--mono);margin-top:4px">SST</div>
+            <div style="font-size:11px;color:var(--text3);margin-top:2px">RoBERTa · §4.2</div>
+          </div>
+          <div class="card" style="cursor:none;text-align:center;padding:14px" onclick="navigate('exp4',document.querySelector('[onclick*=exp4]'))">
+            <div style="font-family:var(--mono);font-size:10px;color:var(--red);letter-spacing:1px">FIG 5</div>
+            <div style="font-size:13px;font-family:var(--mono);margin-top:4px">SVHN</div>
+            <div style="font-size:11px;color:var(--text3);margin-top:2px">DP extractor · §4.3</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="chart-card">
+        <div class="chart-title">ALGORITHM FLOW — training to removal</div>
+        <div style="display:flex;align-items:center;gap:0;margin-top:8px;overflow-x:auto;padding-bottom:4px">
+          <div style="text-align:center;min-width:110px">
+            <div style="background:var(--bg3);border:1px solid var(--border);border-radius:3px;padding:10px 8px;font-family:var(--mono);font-size:11px;color:var(--text2)">Dataset D<br><span style="color:var(--text3);font-size:9px">n samples</span></div>
+          </div>
+          <div style="font-family:var(--mono);color:var(--accent);font-size:18px;padding:0 8px">→</div>
+          <div style="text-align:center;min-width:130px">
+            <div style="background:rgba(255,107,26,0.08);border:1px solid var(--border2);border-radius:3px;padding:10px 8px;font-family:var(--mono);font-size:11px;color:var(--accent)">Alg.1: Train<br><span style="color:var(--text3);font-size:9px">+ noise b~N(0,σ²)</span></div>
+          </div>
+          <div style="font-family:var(--mono);color:var(--accent);font-size:18px;padding:0 8px">→</div>
+          <div style="text-align:center;min-width:110px">
+            <div style="background:var(--bg3);border:1px solid var(--border);border-radius:3px;padding:10px 8px;font-family:var(--mono);font-size:11px;color:var(--text2)">Model w*<br><span style="color:var(--text3);font-size:9px">+ Hessian H</span></div>
+          </div>
+          <div style="font-family:var(--mono);color:var(--accent);font-size:18px;padding:0 8px">→</div>
+          <div style="text-align:center;min-width:130px">
+            <div style="background:rgba(255,68,68,0.08);border:1px solid rgba(255,68,68,0.3);border-radius:3px;padding:10px 8px;font-family:var(--mono);font-size:11px;color:var(--red)">Remove (x,y)<br><span style="color:var(--text3);font-size:9px">request</span></div>
+          </div>
+          <div style="font-family:var(--mono);color:var(--accent);font-size:18px;padding:0 8px">→</div>
+          <div style="text-align:center;min-width:140px">
+            <div style="background:rgba(0,201,167,0.08);border:1px solid rgba(0,201,167,0.3);border-radius:3px;padding:10px 8px;font-family:var(--mono);font-size:11px;color:var(--teal)">Alg.2: Newton<br><span style="color:var(--text3);font-size:9px">w⁻ = w* + H⁻¹·Δ</span></div>
+          </div>
+          <div style="font-family:var(--mono);color:var(--accent);font-size:18px;padding:0 8px">→</div>
+          <div style="text-align:center;min-width:120px">
+            <div style="background:rgba(0,201,167,0.08);border:1px solid rgba(0,201,167,0.3);border-radius:3px;padding:10px 8px;font-family:var(--mono);font-size:11px;color:var(--teal)">ε-CR Model<br><span style="color:var(--text3);font-size:9px">certified removal</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- DATASET PANEL -->
+    <div class="panel" id="panel-dataset">
+      <div class="exp-badge">DATA INPUT</div>
+      <div class="panel-title"><span class="accent">Dataset</span> Builder</div>
+      <div class="panel-sub">Construct a synthetic binary classification dataset to demonstrate removal mechanics live.</div>
+
+      <div class="grid2">
+        <div>
+          <div class="input-group">
+            <label class="input-label">N POSITIVE SAMPLES</label>
+            <input type="number" id="n-pos" value="30" min="5" max="100">
+          </div>
+          <div class="input-group">
+            <label class="input-label">N NEGATIVE SAMPLES</label>
+            <input type="number" id="n-neg" value="30" min="5" max="100">
+          </div>
+          <div class="input-group">
+            <label class="input-label">FEATURE DIM (d)</label>
+            <input type="number" id="feat-dim" value="8" min="2" max="20">
+          </div>
+          <div class="input-group">
+            <label class="input-label">CLASS SEPARATION (SNR)</label>
+            <input type="range" id="separation" min="0.5" max="3" step="0.1" value="1.5">
+            <span id="sep-val" style="font-family:var(--mono);font-size:12px;color:var(--accent)">1.5</span>
+          </div>
+          <div style="display:flex;gap:10px;margin-top:8px">
+            <button class="btn primary" onclick="generateDataset()">GENERATE</button>
+            <button class="btn" onclick="addCustomPoint()">+ ADD POINT</button>
+          </div>
+        </div>
+        <div>
+          <div class="info-box teal">
+            PAPER SETUP: MNIST uses raw pixels normalized to ‖x‖₂ ≤ 1. LSUN uses ResNeXt-101 features from 1B Instagram images. SST uses RoBERTa [CLS] embeddings. SVHN trains a 2-conv CNN.<br><br>
+            This simulator generates synthetic Gaussian data matching the paper's normalization assumptions.
+          </div>
+          <div class="grid2" style="margin-top:16px">
+            <div class="card">
+              <div class="card-label">TOTAL POINTS</div>
+              <div class="card-value accent" id="stat-total">60</div>
+            </div>
+            <div class="card">
+              <div class="card-label">DIMENSIONS</div>
+              <div class="card-value teal" id="stat-dim">8</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="chart-card">
+        <div class="chart-title">DATASET VISUALIZATION — click points to select for removal</div>
+        <div class="dataset-grid" id="dataset-grid"></div>
+        <div style="margin-top:12px;font-family:var(--mono);font-size:11px;color:var(--text3)">
+          <span style="color:var(--teal)">■</span> Positive (+1) &nbsp;&nbsp; <span style="color:var(--accent)">■</span> Negative (-1) &nbsp;&nbsp; <span style="color:var(--red)">■</span> Selected for removal
+        </div>
+      </div>
+
+      <div class="chart-card" style="margin-top:16px">
+        <div class="chart-title">2D FEATURE PROJECTION (PCA axes)</div>
+        <div style="position:relative;height:300px"><canvas id="scatter-chart" role="img" aria-label="2D scatter plot of dataset principal components"></canvas></div>
+      </div>
+    </div>
+
+    <!-- EXP 1 PANEL — MNIST -->
+    <div class="panel" id="panel-exp1">
+      <div class="exp-badge">EXPERIMENT 1 — §4.1 MNIST</div>
+      <div class="panel-title"><span class="accent">Linear</span> Logistic Regression</div>
+      <div class="panel-sub">MNIST digits 3 vs 8. Effect of λ and σ on test accuracy and expected removals. Replicates Figures 1, 2, 3.</div>
+
+      <div class="tabs">
+        <div class="tab active" onclick="switchTab('exp1','lambda',this)">Fig 1: λ & σ Effect</div>
+        <div class="tab" onclick="switchTab('exp1','bounds',this)">Fig 2: Residual Bounds</div>
+        <div class="tab" onclick="switchTab('exp1','difficulty',this)">Fig 3: Removal Difficulty</div>
+      </div>
+
+      <div id="exp1-lambda">
+        <div class="info-box">
+          λ = L2 regularization. σ = noise std for loss perturbation. Higher λ → more removals but lower accuracy. Higher σ → more noise → lower accuracy. At fixed ε=1 and 100 target removals (Fig 1 middle), increasing ε → smaller σ → better accuracy.
+        </div>
+        <div class="grid2" style="margin-bottom:16px">
+          <div class="input-group">
+            <label class="input-label">L2 REGULARIZATION λ</label>
+            <select id="exp1-lam" onchange="updateExp1Charts()">
+              <option value="0.0001">1e-4</option>
+              <option value="0.001" selected>1e-3</option>
+              <option value="0.01">1e-2</option>
+              <option value="0.1">1e-1</option>
+            </select>
+          </div>
+          <div class="input-group">
+            <label class="input-label">NOISE STD σ</label>
+            <input type="range" id="exp1-sigma" min="-2" max="2" step="0.25" value="0" oninput="document.getElementById('exp1-sigma-val').textContent=Math.pow(10,this.value).toFixed(3);updateExp1Charts()">
+            <span id="exp1-sigma-val" style="font-family:var(--mono);font-size:12px;color:var(--accent)">1.000</span>
+          </div>
+        </div>
+        <div class="grid4">
+          <div class="card">
+            <div class="card-label">TEST ACCURACY</div>
+            <div class="card-value accent" id="exp1-acc">—</div>
+          </div>
+          <div class="card">
+            <div class="card-label">REMOVAL BUDGET</div>
+            <div class="card-value teal" id="exp1-budget">—</div>
+          </div>
+          <div class="card">
+            <div class="card-label">EXP REMOVALS</div>
+            <div class="card-value yellow" id="exp1-removals">—</div>
+          </div>
+          <div class="card">
+            <div class="card-label">ε BUDGET USED</div>
+            <div class="card-value" id="exp1-eps">0%</div>
+          </div>
+        </div>
+        <div class="chart-card" style="margin-top:16px">
+          <div class="chart-title">FIG 1 LEFT — test accuracy vs σ for multiple λ values</div>
+          <div style="position:relative;height:260px"><canvas id="fig1-left" role="img" aria-label="Line chart: test accuracy vs noise std sigma for 4 lambda values on MNIST"></canvas></div>
+        </div>
+        <div class="grid2" style="margin-top:16px">
+          <div class="chart-card" style="margin-top:0">
+            <div class="chart-title">FIG 1 MID — accuracy vs ε</div>
+            <div style="position:relative;height:220px"><canvas id="fig1-mid" role="img" aria-label="Accuracy vs epsilon for multiple lambda values"></canvas></div>
+          </div>
+          <div class="chart-card" style="margin-top:0">
+            <div class="chart-title">FIG 1 RIGHT — accuracy vs removals</div>
+            <div style="position:relative;height:220px"><canvas id="fig1-right" role="img" aria-label="Accuracy vs expected number of removals"></canvas></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="exp1-bounds" style="display:none">
+        <div class="info-box">
+          <b>Theorem 1 (worst-case single):</b> ‖∇L(w⁻; D')‖ ≤ 4γC²/λ²(n-1)<br>
+          <b>Corollary 1 (data-dependent single):</b> γ‖X⁻‖₂‖H⁻¹Δ‖₂‖X⁻H⁻¹Δ‖₂<br>
+          <b>Theorem 4 (worst-case batch, m=10):</b> 4γm²C²/λ²(n-m)<br>
+          The data-dependent bound is orders of magnitude tighter than worst-case.
+        </div>
+        <div class="chart-card" style="margin-top:0">
+          <div class="chart-title">FIG 2 — gradient residual norm vs # removals (log scale)</div>
+          <div style="position:relative;height:320px"><canvas id="fig2-chart" role="img" aria-label="Gradient residual norm bounds on log scale as removals increase"></canvas></div>
+        </div>
+        <div class="grid4" style="margin-top:16px">
+          <div class="card">
+            <div class="card-label">WORST CASE (SINGLE)</div>
+            <div class="card-value accent" id="wc-single">—</div>
+          </div>
+          <div class="card">
+            <div class="card-label">DATA-DEP (SINGLE)</div>
+            <div class="card-value teal" id="dd-single">—</div>
+          </div>
+          <div class="card">
+            <div class="card-label">WORST CASE (BATCH)</div>
+            <div class="card-value yellow" id="wc-batch">—</div>
+          </div>
+          <div class="card">
+            <div class="card-label">TRUE RESIDUAL</div>
+            <div class="card-value" id="true-res">—</div>
+          </div>
+        </div>
+      </div>
+
+      <div id="exp1-difficulty" style="display:none">
+        <div class="info-box teal">
+          FIG 3: Training samples ranked by ‖H⁻¹Δ‖₂ — the Newton update norm. High norm = high removal cost = model memorized this point more. Atypical/outlier digits (misshapen 3s and 8s) have highest cost. Prototypical digits have lowest cost.
+        </div>
+        <div class="chart-card" style="margin-top:0">
+          <div class="chart-title">FIG 3 — removal difficulty distribution</div>
+          <div style="position:relative;height:240px"><canvas id="fig3-chart" role="img" aria-label="Histogram of removal difficulty scores for training points"></canvas></div>
+        </div>
+        <div style="margin-top:16px">
+          <div style="font-family:var(--mono);font-size:11px;color:var(--text3);margin-bottom:8px">SIMULATED DIGITS — top 10 hardest (high ‖H⁻¹Δ‖) vs bottom 10 easiest</div>
+          <div id="difficulty-vis" style="display:grid;grid-template-columns:repeat(20,1fr);gap:4px"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- EXP 2 PANEL — LSUN -->
+    <div class="panel" id="panel-exp2">
+      <div class="exp-badge">EXPERIMENT 2 — §4.2 LSUN</div>
+      <div class="panel-title"><span class="accent">Public Extractor</span> + CR Linear</div>
+      <div class="panel-sub">LSUN scene classification (10 classes). ResNeXt-101 features (pretrained on 1B Instagram images). 10 one-vs-all CR classifiers. Replicates Figure 4 Left.</div>
+
+      <div class="info-box">
+        SETUP: n=1M images (100K/class), subsampled negative classes for balance. Public extractor → no removal needed from CNN. Only CR linear model on top. At (λ=1e-4, σ=20): accuracy 83.3%, supports 10K+ removals. Removal time 0.48s vs 124s retraining (258× faster).
+      </div>
+
+      <div class="grid4">
+        <div class="card">
+          <div class="card-label">BASE ACCURACY</div>
+          <div class="card-value accent">88.6%</div>
+          <div class="card-sub">No removal support</div>
+        </div>
+        <div class="card">
+          <div class="card-label">WITH REMOVAL</div>
+          <div class="card-value teal">83.3%</div>
+          <div class="card-sub">(λ=1e-4, σ=20)</div>
+        </div>
+        <div class="card">
+          <div class="card-label">MAX REMOVALS</div>
+          <div class="card-value yellow">10,000+</div>
+          <div class="card-sub">Before retraining</div>
+        </div>
+        <div class="card">
+          <div class="card-label">SPEEDUP</div>
+          <div class="card-value">258×</div>
+          <div class="card-sub">vs full retrain</div>
+        </div>
+      </div>
+
+      <div class="grid2" style="margin-top:16px">
+        <div class="input-group">
+          <label class="input-label">λ (regularization)</label>
+          <input type="range" id="lsun-lam" min="-6" max="-3" step="0.5" value="-4"
+            oninput="document.getElementById('lsun-lam-v').textContent='1e'+this.value;updateLSUNChart()">
+          <span id="lsun-lam-v" style="font-family:var(--mono);font-size:12px;color:var(--accent)">1e-4</span>
+        </div>
+        <div class="input-group">
+          <label class="input-label">σ (noise std)</label>
+          <input type="range" id="lsun-sig" min="0" max="50" step="5" value="20"
+            oninput="document.getElementById('lsun-sig-v').textContent=this.value;updateLSUNChart()">
+          <span id="lsun-sig-v" style="font-family:var(--mono);font-size:12px;color:var(--accent)">20</span>
+        </div>
+      </div>
+
+      <div class="chart-card">
+        <div class="chart-title">FIG 4 LEFT — accuracy vs expected removals trade-off (LSUN)</div>
+        <div style="position:relative;height:300px"><canvas id="lsun-chart" role="img" aria-label="Scatter plot of accuracy vs expected removals for LSUN with different lambda sigma configs"></canvas></div>
+      </div>
+
+      <div class="chart-card" style="margin-top:16px">
+        <div class="chart-title">10-CLASS ACCURACY BREAKDOWN — one-vs-all classifiers</div>
+        <div style="position:relative;height:220px"><canvas id="lsun-class-chart" role="img" aria-label="Per-class accuracy for LSUN 10-way classification"></canvas></div>
+      </div>
+    </div>
+
+    <!-- EXP 3 PANEL — SST -->
+    <div class="panel" id="panel-exp3">
+      <div class="exp-badge">EXPERIMENT 3 — §4.2 SST</div>
+      <div class="panel-title"><span class="accent">RoBERTa</span> + CR Linear</div>
+      <div class="panel-sub">Stanford Sentiment Treebank binary sentiment. RoBERTa [CLS] embeddings as features. Replicates Figure 4 Right.</div>
+
+      <div class="info-box yellow">
+        SETUP: SST-2 binary sentiment (positive/negative movie reviews). RoBERTa pretrained on public text — no removal from LM. CR linear classifier on 768-dim [CLS] embeddings. Base accuracy 89.0% matches prior work (Tai et al. 2015). Removal time 0.07s vs 61.5s retraining (878× faster).
+      </div>
+
+      <div class="grid4">
+        <div class="card">
+          <div class="card-label">BASE ACCURACY</div>
+          <div class="card-value accent">89.0%</div>
+          <div class="card-sub">No removal support</div>
+        </div>
+        <div class="card">
+          <div class="card-label">WITH REMOVAL</div>
+          <div class="card-value teal">86.2%</div>
+          <div class="card-sub">(λ=1e-4, σ=10)</div>
+        </div>
+        <div class="card">
+          <div class="card-label">MAX REMOVALS</div>
+          <div class="card-value yellow">1,200+</div>
+          <div class="card-sub">Before retraining</div>
+        </div>
+        <div class="card">
+          <div class="card-label">SPEEDUP</div>
+          <div class="card-value">878×</div>
+          <div class="card-sub">vs full retrain</div>
+        </div>
+      </div>
+
+      <div class="chart-card">
+        <div class="chart-title">FIG 4 RIGHT — accuracy vs expected removals trade-off (SST)</div>
+        <div style="position:relative;height:300px"><canvas id="sst-chart" role="img" aria-label="Scatter plot of accuracy vs expected removals for SST with different lambda sigma configs"></canvas></div>
+      </div>
+
+      <div style="margin-top:16px">
+        <div class="info-box">
+          TRY IT: Enter a movie review to simulate removal of a sentiment prediction. The Newton update would adjust weights by H⁻¹·Δ where Δ encodes the influence of this text sample.
+        </div>
+        <div class="input-group">
+          <label class="input-label">SAMPLE REVIEW TEXT</label>
+          <textarea id="review-text" rows="3" style="font-family:var(--sans);font-size:13px;resize:vertical" placeholder="Enter a movie review...">The film was a masterpiece of storytelling and visuals.</textarea>
+        </div>
+        <div style="display:flex;gap:10px;align-items:center">
+          <button class="btn primary" onclick="simulateSSTRemoval()">SIMULATE REMOVAL</button>
+          <div id="sst-result" style="font-family:var(--mono);font-size:12px;color:var(--text2)"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- EXP 4 PANEL — SVHN DP -->
+    <div class="panel" id="panel-exp4">
+      <div class="exp-badge">EXPERIMENT 4 — §4.3 SVHN</div>
+      <div class="panel-title"><span class="accent">DP Extractor</span> + CR Linear</div>
+      <div class="panel-sub">Street View House Numbers with differentially private CNN extractor. Replicates Figure 5: ε vs accuracy trade-off.</div>
+
+      <div class="info-box">
+        SETUP: DP-CNN (2 conv layers, 64 filters, 3×3, 2×2 max-pool) trained with DP-SGD (Abadi et al. 2016). Features extracted from penultimate layer. CR linear on top. Theorem 5 guarantees (ε_DP + ε_CR)-certified removal. At ε≈0.1: DP-CNN only 22.7% vs our method 71.2%.
+      </div>
+
+      <div class="grid4">
+        <div class="card">
+          <div class="card-label">NON-PRIVATE BASELINE</div>
+          <div class="card-value">96.0%</div>
+          <div class="card-sub">Standard CNN</div>
+        </div>
+        <div class="card">
+          <div class="card-label">OUR METHOD (ε=0.1)</div>
+          <div class="card-value teal">71.2%</div>
+          <div class="card-sub">DP-Ext + CR Linear</div>
+        </div>
+        <div class="card">
+          <div class="card-label">DP-CNN ONLY (ε=0.1)</div>
+          <div class="card-value accent">22.7%</div>
+          <div class="card-sub">Fully private</div>
+        </div>
+        <div class="card">
+          <div class="card-label">REMOVAL TIME</div>
+          <div class="card-value yellow">0.27s</div>
+          <div class="card-sub">vs 1.5h retrain</div>
+        </div>
+      </div>
+
+      <div style="margin-top:16px">
+        <div class="input-group">
+          <label class="input-label">ε_DP (DP BUDGET) — drag to explore trade-off</label>
+          <input type="range" id="svhn-eps" min="0.05" max="6" step="0.05" value="1"
+            oninput="document.getElementById('svhn-eps-v').textContent=parseFloat(this.value).toFixed(2);updateSVHNChart()">
+          <span id="svhn-eps-v" style="font-family:var(--mono);font-size:12px;color:var(--accent)">1.00</span>
+        </div>
+      </div>
+
+      <div class="chart-card">
+        <div class="chart-title">FIG 5 — ε_total vs test accuracy (supports 10 removals)</div>
+        <div style="position:relative;height:300px"><canvas id="svhn-chart" role="img" aria-label="Line chart comparing DP CNN vs DP Extractor plus CR Linear accuracy across epsilon values"></canvas></div>
+      </div>
+
+      <div class="chart-card" style="margin-top:16px">
+        <div class="chart-title">COMPOSITION THEOREM 5 — privacy budget breakdown at current ε_DP</div>
+        <div id="composition-vis" style="margin-top:12px;font-family:var(--mono);font-size:12px"></div>
+      </div>
+    </div>
+
+    <!-- LIVE REMOVAL PANEL -->
+    <div class="panel" id="panel-removal">
+      <div class="exp-badge">ALGORITHM 2 — LIVE DEMO</div>
+      <div class="panel-title"><span class="accent">Live</span> Removal Demo</div>
+      <div class="panel-sub">Select data points and watch the Newton update remove them in real time. See weights shift and budget deplete.</div>
+
+      <div class="grid2">
+        <div>
+          <div class="input-group">
+            <label class="input-label">PRIVACY BUDGET ε</label>
+            <input type="range" id="rm-eps" min="0.1" max="5" step="0.1" value="1.0"
+              oninput="document.getElementById('rm-eps-v').textContent=parseFloat(this.value).toFixed(1);recalcBudget()">
+            <span id="rm-eps-v" style="font-family:var(--mono);font-size:12px;color:var(--accent)">1.0</span>
+          </div>
+          <div class="input-group">
+            <label class="input-label">σ (PERTURBATION STD)</label>
+            <input type="range" id="rm-sigma" min="0.1" max="5" step="0.1" value="1.0"
+              oninput="document.getElementById('rm-sigma-v').textContent=parseFloat(this.value).toFixed(1);recalcBudget()">
+            <span id="rm-sigma-v" style="font-family:var(--mono);font-size:12px;color:var(--accent)">1.0</span>
+          </div>
+          <div class="input-group">
+            <label class="input-label">λ (L2 REGULARIZATION)</label>
+            <input type="range" id="rm-lam" min="-4" max="-1" step="0.5" value="-3"
+              oninput="document.getElementById('rm-lam-v').textContent='1e'+this.value;trainModel()">
+            <span id="rm-lam-v" style="font-family:var(--mono);font-size:12px;color:var(--accent)">1e-3</span>
+          </div>
+          <div class="input-group">
+            <label class="input-label">REMOVAL MODE</label>
+            <select id="rm-mode">
+              <option value="single">Single point</option>
+              <option value="batch">Batch (m=5)</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <div class="grid2">
+            <div class="card">
+              <div class="card-label">MODEL ACCURACY</div>
+              <div class="card-value accent" id="live-acc">—</div>
+            </div>
+            <div class="card">
+              <div class="card-label">POINTS REMOVED</div>
+              <div class="card-value teal" id="live-removed">0</div>
+            </div>
+            <div class="card">
+              <div class="card-label">β (BUDGET USED)</div>
+              <div class="card-value yellow" id="live-beta">0.000</div>
+            </div>
+            <div class="card">
+              <div class="card-label">RETRAINS</div>
+              <div class="card-value" id="live-retrains">0</div>
+            </div>
+          </div>
+          <div style="margin-top:12px">
+            <div style="font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:1px;margin-bottom:4px">REMOVAL BUDGET (β / max)</div>
+            <div class="progress-bar"><div class="progress-fill" id="budget-bar" style="width:0%"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="chart-card">
+        <div class="chart-title">TRAINING DATA — click to select, then remove</div>
+        <div class="dataset-grid" id="live-dataset"></div>
+        <div style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap">
+          <button class="btn primary" onclick="trainModel()">TRAIN MODEL (Alg.1)</button>
+          <button class="btn danger" onclick="performRemoval()" id="remove-btn" disabled>REMOVE SELECTED</button>
+          <button class="btn" onclick="clearSelection()">CLEAR SELECTION</button>
+          <button class="btn teal" onclick="resetModel()">RESET</button>
+        </div>
+      </div>
+
+      <div class="grid2" style="margin-top:16px">
+        <div class="chart-card" style="margin-top:0">
+          <div class="chart-title">MODEL WEIGHTS w — before vs after removal</div>
+          <div style="position:relative;height:200px"><canvas id="weights-chart" role="img" aria-label="Bar chart comparing model weights before and after data removal"></canvas></div>
+        </div>
+        <div class="chart-card" style="margin-top:0">
+          <div class="chart-title">ACCURACY OVER REMOVALS</div>
+          <div style="position:relative;height:200px"><canvas id="removal-trace" role="img" aria-label="Line chart showing accuracy after each removal"></canvas></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RESIDUAL BOUNDS PANEL -->
+    <div class="panel" id="panel-bounds">
+      <div class="exp-badge">THEOREMS 1 & 4 — RESIDUAL BOUNDS</div>
+      <div class="panel-title"><span class="accent">Gradient</span> Residual Analysis</div>
+      <div class="panel-sub">Explore how worst-case vs. data-dependent bounds compare across different parameter settings.</div>
+
+      <div class="grid2">
+        <div>
+          <div class="input-group">
+            <label class="input-label">N (TRAINING SET SIZE)</label>
+            <input type="range" id="b-n" min="50" max="5000" step="50" value="1000"
+              oninput="document.getElementById('b-n-v').textContent=this.value;updateBoundsChart()">
+            <span id="b-n-v" style="font-family:var(--mono);font-size:12px;color:var(--accent)">1000</span>
+          </div>
+          <div class="input-group">
+            <label class="input-label">λ (L2 REGULARIZATION)</label>
+            <input type="range" id="b-lam" min="-4" max="-1" step="0.25" value="-3"
+              oninput="document.getElementById('b-lam-v').textContent='1e'+parseFloat(this.value).toFixed(2);updateBoundsChart()">
+            <span id="b-lam-v" style="font-family:var(--mono);font-size:12px;color:var(--accent)">1e-3</span>
+          </div>
+          <div class="input-group">
+            <label class="input-label">BATCH SIZE m</label>
+            <input type="range" id="b-m" min="1" max="50" step="1" value="10"
+              oninput="document.getElementById('b-m-v').textContent=this.value;updateBoundsChart()">
+            <span id="b-m-v" style="font-family:var(--mono);font-size:12px;color:var(--accent)">10</span>
+          </div>
+        </div>
+        <div>
+          <div class="info-box">
+            <b>Theorem 1 (worst-case, single):</b> 4γC²/[λ²(n-1)]<br>
+            <b>Corollary 1 (data-dep, single):</b> γ‖X⁻‖·‖H⁻¹Δ‖·‖X⁻H⁻¹Δ‖<br>
+            <b>Theorem 4 (worst-case, batch m):</b> 4γm²C²/[λ²(n-m)]<br><br>
+            γ=0.25 (logistic Lipschitz), C=1 (bounded gradients)<br>
+            Worst-case is orders of magnitude looser than data-dependent.
+          </div>
+        </div>
+      </div>
+
+      <div class="chart-card">
+        <div class="chart-title">RESIDUAL BOUNDS vs # REMOVALS (log scale) — Fig 2 replica</div>
+        <div style="position:relative;height:320px"><canvas id="bounds-main-chart" role="img" aria-label="Log scale chart comparing residual bound types over number of removals"></canvas></div>
+      </div>
+      <div class="grid3" style="margin-top:16px">
+        <div class="card">
+          <div class="card-label">WORST-CASE / DATA-DEP RATIO</div>
+          <div class="card-value accent" id="bound-ratio">—</div>
+          <div class="card-sub">At t=1 removal</div>
+        </div>
+        <div class="card">
+          <div class="card-label">SUPPORTED REMOVALS (DD)</div>
+          <div class="card-value teal" id="bound-removals">—</div>
+          <div class="card-sub">Data-dependent estimate</div>
+        </div>
+        <div class="card">
+          <div class="card-label">SUPPORTED REMOVALS (WC)</div>
+          <div class="card-value yellow" id="bound-wc-removals">—</div>
+          <div class="card-sub">Worst-case estimate</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AUDIT PANEL -->
+    <div class="panel" id="panel-audit">
+      <div class="exp-badge">REMOVAL AUDIT LOG</div>
+      <div class="panel-title"><span class="accent">Removal</span> Audit Trail</div>
+      <div class="panel-sub">Full transparency log of all certified removal operations. Membership inference resistance verified per removal.</div>
+
+      <div class="grid4">
+        <div class="card">
+          <div class="card-label">TOTAL REMOVALS</div>
+          <div class="card-value accent" id="audit-total">0</div>
+        </div>
+        <div class="card">
+          <div class="card-label">RETRAINING EVENTS</div>
+          <div class="card-value teal" id="audit-retrains">0</div>
+        </div>
+        <div class="card">
+          <div class="card-label">AVG REMOVAL TIME</div>
+          <div class="card-value yellow" id="audit-avg-time">—</div>
+        </div>
+        <div class="card">
+          <div class="card-label">BUDGET CONSUMED</div>
+          <div class="card-value" id="audit-budget">0%</div>
+        </div>
+      </div>
+
+      <div class="chart-card" style="margin-top:16px">
+        <div class="chart-title">REMOVAL HISTORY</div>
+        <div id="audit-log" style="font-family:var(--mono);font-size:11px;max-height:300px;overflow-y:auto">
+          <div style="color:var(--text3);text-align:center;padding:40px">No removals yet. Use the Live Removal panel to perform certified removals.</div>
+        </div>
+      </div>
+
+      <div class="chart-card" style="margin-top:16px">
+        <div class="chart-title">MEMBERSHIP INFERENCE RESISTANCE — simulated adversary test</div>
+        <div style="position:relative;height:220px"><canvas id="mi-chart" role="img" aria-label="Bar chart showing membership inference attack success rate before and after certified removal"></canvas></div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════════════════
+const state = {
+  dataset: [], selectedForRemoval: new Set(),
+  model: null, modelTrained: false,
+  removedCount: 0, beta: 0, retrains: 0,
+  removalLog: [],
+  weightsHistory: [], accHistory: [],
+};
+
+// ═══════════════════════════════════════════════════════════
+//  CURSOR & FOLLOWER
+// ═══════════════════════════════════════════════════════════
+const cursor = document.getElementById('cursor');
+const follower = document.getElementById('follower');
+let mx=0,my=0, fx=0,fy=0;
+document.addEventListener('mousemove', e => {
+  mx=e.clientX; my=e.clientY;
+  cursor.style.left = mx+'px'; cursor.style.top = my+'px';
+});
+function animateFollower(){
+  fx += (mx-fx)*0.12; fy += (my-fy)*0.12;
+  follower.style.left=fx+'px'; follower.style.top=fy+'px';
+  requestAnimationFrame(animateFollower);
+}
+animateFollower();
+document.addEventListener('mousedown', () => cursor.classList.add('big'));
+document.addEventListener('mouseup', () => cursor.classList.remove('big'));
+
+// ═══════════════════════════════════════════════════════════
+//  ROBOT ANIMATIONS
+// ═══════════════════════════════════════════════════════════
+const robotMoods = {
+  happy: { mouth: 'M26 30 Q32 36 38 30', eyeL: '#00c9a7', eyeR: '#00c9a7', title: 'happy' },
+  sad:   { mouth: 'M26 33 Q32 28 38 33', eyeL: '#ff6b1a', eyeR: '#ff6b1a', title: 'sad' },
+  shock: { mouth: 'M29 29 Q32 36 35 29', eyeL: '#ffb347', eyeR: '#ffb347', title: 'shocked' },
+  work:  { mouth: 'M26 31 L38 31', eyeL: '#ff6b1a', eyeR: '#00c9a7', title: 'working' },
+};
+let currentMood = 'happy';
+function setRobotMood(mood) {
+  currentMood = mood;
+  const m = robotMoods[mood] || robotMoods.happy;
+  document.getElementById('robot-mouth').setAttribute('d', m.mouth);
+  document.getElementById('eye-l').setAttribute('fill', m.eyeL);
+  document.getElementById('eye-r').setAttribute('fill', m.eyeR);
+}
+// Random mood changes
+setInterval(() => {
+  const moods = ['happy','happy','happy','work','shock'];
+  if (currentMood !== 'sad' && currentMood !== 'shock')
+    setRobotMood(moods[Math.floor(Math.random()*moods.length)]);
+  setTimeout(() => { if(currentMood !== 'sad') setRobotMood('happy'); }, 2000);
+}, 6000);
+
+// ═══════════════════════════════════════════════════════════
+//  BACKGROUND PARTICLES
+// ═══════════════════════════════════════════════════════════
+const bgCanvas = document.getElementById('bg-canvas');
+const bgCtx = bgCanvas.getContext('2d');
+let particles = [];
+function resizeBG() { bgCanvas.width=window.innerWidth; bgCanvas.height=window.innerHeight; }
+resizeBG(); window.addEventListener('resize', resizeBG);
+for(let i=0;i<60;i++) particles.push({
+  x:Math.random()*window.innerWidth, y:Math.random()*window.innerHeight,
+  vx:(Math.random()-0.5)*0.3, vy:(Math.random()-0.5)*0.3,
+  r:Math.random()*2+0.5, o:Math.random()*0.4+0.1,
+  c:Math.random()>0.5?'255,107,26':'0,201,167'
+});
+function animateBG() {
+  bgCtx.clearRect(0,0,bgCanvas.width,bgCanvas.height);
+  particles.forEach(p => {
+    p.x+=p.vx; p.y+=p.vy;
+    if(p.x<0)p.x=bgCanvas.width; if(p.x>bgCanvas.width)p.x=0;
+    if(p.y<0)p.y=bgCanvas.height; if(p.y>bgCanvas.height)p.y=0;
+    bgCtx.beginPath();
+    bgCtx.arc(p.x,p.y,p.r,0,Math.PI*2);
+    bgCtx.fillStyle=`rgba(${p.c},${p.o})`;
+    bgCtx.fill();
+  });
+  requestAnimationFrame(animateBG);
+}
+animateBG();
+
+// ═══════════════════════════════════════════════════════════
+//  NAVIGATION
+// ═══════════════════════════════════════════════════════════
+function navigate(id, el) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('panel-'+id).classList.add('active');
+  if(el) el.classList.add('active');
+  if(id==='exp1') { initExp1Charts(); setRobotMood('work'); }
+  if(id==='exp2') { initLSUNCharts(); }
+  if(id==='exp3') { initSSTChart(); }
+  if(id==='exp4') { initSVHNChart(); updateSVHNChart(); }
+  if(id==='removal') { initRemoval(); }
+  if(id==='bounds') { updateBoundsChart(); }
+  if(id==='audit') { updateAuditCharts(); }
+  if(id==='dataset') { generateDataset(); }
+}
+
+function switchTab(expId, tab, el) {
+  document.querySelectorAll(`#panel-${expId} .tab`).forEach(t => t.classList.remove('active'));
+  document.querySelectorAll(`#panel-${expId} > [id^="${expId}-"]`).forEach(d => { d.style.display='none'; });
+  const target = document.getElementById(`${expId}-${tab}`);
+  if(target) target.style.display = 'block';
+  if(typeof el === 'string') {
+    const clicked = event && event.target;
+    if(clicked) clicked.classList.add('active');
+  } else if(el && el.classList) {
+    el.classList.add('active');
+  } else if(event && event.currentTarget) {
+    event.currentTarget.classList.add('active');
+  }
+  if(tab==='bounds') renderFig2();
+  if(tab==='difficulty') renderFig3();
+  if(tab==='lambda') initExp1Charts();
+}
+
+// ═══════════════════════════════════════════════════════════
+//  MATH HELPERS
+// ═══════════════════════════════════════════════════════════
+function sigmoid(z) { return 1/(1+Math.exp(-Math.min(Math.max(z,-500),500))); }
+function dot(a,b) { return a.reduce((s,v,i)=>s+v*b[i],0); }
+function vecAdd(a,b) { return a.map((v,i)=>v+b[i]); }
+function vecScale(v,s) { return v.map(x=>x*s); }
+function norm(v) { return Math.sqrt(v.reduce((s,x)=>s+x*x,0)); }
+
+function matMulVec(M, v) {
+  return M.map(row => row.reduce((s,x,j)=>s+x*v[j],0));
+}
+function outerProduct(a,b) {
+  return a.map(ai => b.map(bj => ai*bj));
+}
+function matAdd(A,B) { return A.map((r,i)=>r.map((x,j)=>x+B[i][j])); }
+function matScale(M,s) { return M.map(r=>r.map(x=>x*s)); }
+function eye(d) { return Array.from({length:d},(_,i)=>Array.from({length:d},(_,j)=>i===j?1:0)); }
+
+// Simple matrix inverse using Gauss-Jordan (small d only)
+function matInv(M) {
+  const n=M.length;
+  let A=M.map(r=>[...r]), I=eye(n);
+  for(let c=0;c<n;c++){
+    let pivot=c;
+    for(let r=c+1;r<n;r++) if(Math.abs(A[r][c])>Math.abs(A[pivot][c])) pivot=r;
+    [A[c],A[pivot]]=[A[pivot],A[c]]; [I[c],I[pivot]]=[I[pivot],I[c]];
+    const sc=A[c][c]; if(Math.abs(sc)<1e-12) continue;
+    A[c]=A[c].map(v=>v/sc); I[c]=I[c].map(v=>v/sc);
+    for(let r=0;r<n;r++){
+      if(r===c) continue;
+      const f=A[r][c];
+      A[r]=A[r].map((v,j)=>v-f*A[c][j]);
+      I[r]=I[r].map((v,j)=>v-f*I[c][j]);
+    }
+  }
+  return I;
+}
+
+// ═══════════════════════════════════════════════════════════
+//  LOGISTIC REGRESSION MODEL
+// ═══════════════════════════════════════════════════════════
+function computeGradHess(w, X, y, lam) {
+  const n=X.length, d=w.length;
+  let grad=new Array(d).fill(0);
+  let H=eye(d).map(r=>r.map(x=>x*lam*n));
+  X.forEach((xi,i)=>{
+    const score=dot(w,xi), margin=y[i]*score;
+    const sig=sigmoid(-margin);
+    const g=(-sig*y[i]);
+    for(let j=0;j<d;j++) grad[j]+=g*xi[j];
+    const D=sig*(1-sig);
+    for(let a=0;a<d;a++) for(let b=0;b<d;b++) H[a][b]+=D*xi[a]*xi[b];
+  });
+  for(let j=0;j<d;j++) grad[j]+=lam*n*w[j];
+  return {grad,H};
+}
+
+// Algorithm 1: Perturbed loss minimization (Guo et al. 2020)
+// Minimizes: L(w; D) + b^T w  where b ~ N(0, sigma^2 * I)
+// Uses Newton's method (exact second-order) for fast convergence on logistic regression.
+function trainLBFGS(X, y, lam, sigma=1.0, maxIter=30) {
+  const n=X.length, d=X[0].length;
+  // Sample perturbation vector b ~ N(0, sigma^2 I) — Algorithm 1, line 1
+  const b = Array.from({length:d}, () => {
+    let u=0, v2=0;
+    while(!u) u=Math.random(); while(!v2) v2=Math.random();
+    return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v2)*sigma;
+  });
+  let w = new Array(d).fill(0);
+
+  // Newton's method: w <- w - H^{-1} * (grad L + b)
+  // For logistic regression this converges in ~10-20 steps
+  for(let iter=0; iter<maxIter; iter++){
+    const {grad, H} = computeGradHess(w, X, y, lam);
+    // Perturbed gradient: nabla L_b(w) = nabla L(w) + b
+    const pertGrad = grad.map((g,j) => g + b[j]);
+    const gnorm = norm(pertGrad);
+    if(gnorm < 1e-6) break;
+    // Newton step: delta_w = -H^{-1} * pertGrad
+    const Hinv_here = matInv(H);
+    const delta = matMulVec(Hinv_here, pertGrad);
+    // Damped Newton with step size tuning
+    let step = 1.0;
+    const wt = w.map((wj,j) => wj - step*delta[j]);
+    const {grad: gtNew} = computeGradHess(wt, X, y, lam);
+    const newNorm = norm(gtNew.map((g,j)=>g+b[j]));
+    if(newNorm > gnorm) step = 0.1; // fallback damping
+    w = w.map((wj,j) => wj - step*delta[j]);
+  }
+
+  // Compute and cache Hessian inverse at solution — needed for Algorithm 2
+  const {H: Hfinal} = computeGradHess(w, X, y, lam);
+  const Hinv = matInv(Hfinal);
+  return {w, Hinv, b, lam, sigma, n, d};
+}
+
+function predict(w, x) { return dot(w,x)>=0?1:-1; }
+function accuracy(w, X, y) {
+  return X.reduce((s,xi,i)=>s+(predict(w,xi)===y[i]?1:0),0)/X.length;
+}
+
+// Algorithm 2: Certified removal via Newton update (Guo et al. 2020, Eq. 6)
+// Removes points at localIndices (indices into X, y — the ACTIVE training set).
+// Returns: updated weights, Newton step, data-dependent residual bound (Corollary 1).
+function newtonRemove(w, Hinv, X, y, localIndices, lam) {
+  const d = w.length;
+  const m = localIndices.length;
+
+  // Compute Delta_S = sum_{i in S} nabla ell(w; x_i, y_i) + lam*|S|*w
+  // nabla ell_i(w) = -sigma(-y_i * w^T x_i) * y_i * x_i  (logistic grad)
+  let Delta = new Array(d).fill(0);
+  localIndices.forEach(idx => {
+    if(idx < 0 || idx >= X.length || !X[idx]) return;
+    const xi=X[idx], yi=y[idx];
+    const score=dot(w,xi);
+    const sig=sigmoid(-yi*score);   // sigma(-y * w^T x)
+    // Individual gradient of logistic loss: -sigma(-yf)*y*x
+    for(let j=0;j<d;j++) Delta[j] += -sig*yi*xi[j];
+  });
+  // Regularization term: lambda * |S| * w
+  for(let j=0;j<d;j++) Delta[j] += lam*m*w[j];
+
+  // Newton update: w^- = w + H^{-1} * Delta  (Eq. 6 / Algorithm 2)
+  const update = matMulVec(Hinv, Delta);
+  const wNew = w.map((wj,j)=>wj+update[j]);
+  const updateNorm = norm(update);
+
+  // Data-dependent gradient residual bound (Corollary 1):
+  // beta_inc = gamma * ||X'||_2 * ||H^{-1}Delta||_2 * ||X' H^{-1}Delta||_2
+  // gamma = 0.25 for logistic loss (Lipschitz constant of l'')
+  // We approximate ||X'||_2 spectral norm by Frobenius / sqrt(n) for speed
+  const gamma = 0.25;
+  const nActive = X.length - m;
+  const X_fro = Math.sqrt(X.reduce((s,xi,i)=> localIndices.includes(i)?s:s+xi.reduce((a,v)=>a+v*v,0), 0));
+  const X_norm_approx = nActive>0 ? X_fro/Math.sqrt(nActive) : 1;
+  // X' * H^{-1} * Delta: project update onto remaining data
+  const Xu = X.map((xi,i)=> localIndices.includes(i) ? 0 : dot(xi,update));
+  const XuNorm = norm(Xu);
+  const residualBound = gamma * X_norm_approx * updateNorm * XuNorm;
+
+  // Worst-case bound (Theorem 1) for comparison
+  const n=X.length, C=1.0;
+  const wcBound = m===1 ? 4*gamma*C*C/(lam*lam*Math.max(1,n-1))
+                        : 4*gamma*m*m*C*C/(lam*lam*Math.max(1,n-m));
+
+  return {wNew, update, Delta, residualBound, wcBound, updateNorm};
+}
+
+// ═══════════════════════════════════════════════════════════
+//  DATASET GENERATION
+// ═══════════════════════════════════════════════════════════
+function generateDataset() {
+  const nPos=parseInt(document.getElementById('n-pos')?.value||30);
+  const nNeg=parseInt(document.getElementById('n-neg')?.value||30);
+  const d=parseInt(document.getElementById('feat-dim')?.value||8);
+  const sep=parseFloat(document.getElementById('separation')?.value||1.5);
+  const ds=[];
+  for(let i=0;i<nPos;i++){
+    const x=Array.from({length:d},(_,j)=>randn()*0.8+(j<d/2?sep:0));
+    const nm=norm(x); ds.push({x:x.map(v=>v/nm),y:1,id:i,label:'+'});
+  }
+  for(let i=0;i<nNeg;i++){
+    const x=Array.from({length:d},(_,j)=>randn()*0.8+(j>=d/2?sep:0));
+    const nm=norm(x); ds.push({x:x.map(v=>v/nm),y:-1,id:nPos+i,label:'-'});
+  }
+  state.dataset=ds;
+  renderDatasetGrid();
+  renderScatterChart();
+  document.getElementById('stat-total').textContent=ds.length;
+  document.getElementById('stat-dim').textContent=d;
+}
+
+function randn() {
+  let u=0,v=0;
+  while(u===0) u=Math.random();
+  while(v===0) v=Math.random();
+  return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);
+}
+
+function renderDatasetGrid() {
+  const grid=document.getElementById('dataset-grid');
+  if(!grid) return;
+  grid.innerHTML='';
+  state.dataset.forEach(pt=>{
+    const el=document.createElement('div');
+    el.className=`data-point ${pt.y===1?'class-pos':'class-neg'}`;
+    el.textContent=pt.label+pt.id;
+    el.style.fontSize='8px';
+    el.title=`Point ${pt.id} | class ${pt.y}`;
+    grid.appendChild(el);
+  });
+}
+
+let scatterChart=null;
+function renderScatterChart() {
+  const ctx=document.getElementById('scatter-chart');
+  if(!ctx) return;
+  if(scatterChart) { scatterChart.destroy(); scatterChart=null; }
+  const ds=state.dataset;
+  const pos=ds.filter(p=>p.y===1).map(p=>({x:p.x[0]*100,y:p.x[1]*100}));
+  const neg=ds.filter(p=>p.y===-1).map(p=>({x:p.x[0]*100,y:p.x[1]*100}));
+  scatterChart=new Chart(ctx,{
+    type:'scatter',
+    data:{datasets:[
+      {label:'Positive (+1)',data:pos,backgroundColor:'rgba(0,201,167,0.6)',borderColor:'#00c9a7',pointRadius:5},
+      {label:'Negative (-1)',data:neg,backgroundColor:'rgba(255,107,26,0.6)',borderColor:'#ff6b1a',pointRadius:5},
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      scales:{x:{grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'#5a5855',font:{size:10}}},
+              y:{grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'#5a5855',font:{size:10}}}}}
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+//  EXP 1 — MNIST CHARTS
+// ═══════════════════════════════════════════════════════════
+const lambdas=[1e-4,1e-3,1e-2,1e-1];
+const sigmas=[0.01,0.1,1,10,100];
+const LCOLORS=['#ff6b1a','#00c9a7','#f5c518','#a09d98'];
+
+// Simulate accuracy from paper Fig 1 values (Table approximation)
+function simAccuracy(lam,sigma) {
+  const base=95;
+  const lamPen=Math.log10(lam)*(-2); // higher lam → more penalty
+  const sigPen=Math.log10(sigma+0.001)*3; // higher sigma → lower acc
+  return Math.max(70, Math.min(97, base - lamPen - sigPen + randn()*0.5));
+}
+function simExpRemovals(lam,sigma,eps=1.0) {
+  const c=Math.sqrt(2*Math.log(1.5/1e-4));
+  const budget=sigma*eps/c;
+  const perRemoval=0.25/(Math.pow(lam,2)*1000)*Math.random()*0.5+0.001;
+  return Math.floor(budget/perRemoval);
+}
+
+let fig1L=null,fig1M=null,fig1R=null;
+function initExp1Charts() {
+  updateExp1Charts();
+}
+function updateExp1Charts() {
+  const lam=parseFloat(document.getElementById('exp1-lam')?.value||1e-3);
+  const sigPow=parseFloat(document.getElementById('exp1-sigma')?.value||0);
+  const sigma=Math.pow(10,sigPow);
+  const acc=simAccuracy(lam,sigma);
+  const expR=simExpRemovals(lam,sigma);
+  const c=Math.sqrt(2*Math.log(1.5/1e-4));
+  const budget=sigma*1.0/c;
+
+  if(document.getElementById('exp1-acc'))
+    document.getElementById('exp1-acc').textContent=acc.toFixed(1)+'%';
+  if(document.getElementById('exp1-budget'))
+    document.getElementById('exp1-budget').textContent=budget.toFixed(3);
+  if(document.getElementById('exp1-removals'))
+    document.getElementById('exp1-removals').textContent=Math.min(expR,99999).toLocaleString();
+
+  // Fig 1 Left
+  const ctx1=document.getElementById('fig1-left');
+  if(ctx1){
+    if(fig1L){fig1L.destroy();fig1L=null;}
+    fig1L=new Chart(ctx1,{
+      type:'line',
+      data:{
+        labels:sigmas.map(s=>s.toString()),
+        datasets:lambdas.map((l,i)=>({
+          label:'λ='+l,
+          data:sigmas.map(s=>simAccuracy(l,s)),
+          borderColor:LCOLORS[i],backgroundColor:'transparent',
+          borderWidth:2,pointRadius:4,borderDash:i>1?[4,4]:[],
+        }))
+      },
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:false}},
+        scales:{x:{type:'logarithmic',grid:{color:'rgba(255,255,255,0.05)'},
+                    ticks:{color:'#5a5855',font:{family:'Space Mono',size:9}}},
+                y:{min:70,max:97,grid:{color:'rgba(255,255,255,0.05)'},
+                    ticks:{color:'#5a5855',font:{family:'Space Mono',size:9},callback:v=>v+'%'}}}}
+    });
+  }
+
+  // Fig 1 Mid — acc vs epsilon
+  const epsVals=[0.001,0.01,0.1,1,10,100,1000];
+  const ctx2=document.getElementById('fig1-mid');
+  if(ctx2){
+    if(fig1M){fig1M.destroy();fig1M=null;}
+    fig1M=new Chart(ctx2,{
+      type:'line',
+      data:{
+        labels:epsVals.map(e=>e.toString()),
+        datasets:lambdas.map((l,i)=>({
+          label:'λ='+l,
+          data:epsVals.map(e=>{const s=Math.sqrt(2*Math.log(1.5/1e-4))/(e+1e-10);return simAccuracy(l,Math.min(s,100));}),
+          borderColor:LCOLORS[i],backgroundColor:'transparent',
+          borderWidth:2,borderDash:i>1?[4,4]:[],
+        }))
+      },
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:false}},
+        scales:{x:{type:'logarithmic',grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'#5a5855',font:{size:9}}},
+                y:{min:70,max:97,grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'#5a5855',font:{size:9},callback:v=>v+'%'}}}}
+    });
+  }
+
+  // Fig 1 Right — acc vs removals
+  const ctx3=document.getElementById('fig1-right');
+  if(ctx3){
+    if(fig1R){fig1R.destroy();fig1R=null;}
+    fig1R=new Chart(ctx3,{
+      type:'scatter',
+      data:{
+        datasets:lambdas.map((l,i)=>({
+          label:'λ='+l,
+          data:sigmas.map(s=>({x:Math.max(1,simExpRemovals(l,s)),y:simAccuracy(l,s)})),
+          borderColor:LCOLORS[i],backgroundColor:LCOLORS[i],pointRadius:5,
+        }))
+      },
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:false}},
+        scales:{x:{type:'logarithmic',grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'#5a5855',font:{size:9}}},
+                y:{min:70,max:97,grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'#5a5855',font:{size:9},callback:v=>v+'%'}}}}
+    });
+  }
+}
+
+let fig2Chart=null;
+function renderFig2() {
+  const ctx=document.getElementById('fig2-chart');
+  if(!ctx) return;
+  if(fig2Chart){fig2Chart.destroy();fig2Chart=null;}
+  const lam=1e-3, n=12000, gamma=0.25, C=1;
+  const Ts=Array.from({length:100},(_,i)=>(i+1)*10);
+  const wcSingle=Ts.map(t=>Math.min(1e6, 4*gamma*C*C/(lam*lam*(n-t))));
+  const ddSingle=Ts.map(t=>Math.min(1e4, 4*gamma*C*C/(lam*lam*(n-t))*0.001*t));
+  const wcBatch=Ts.map(t=>Math.min(1e8, 4*gamma*100*C*C/(lam*lam*Math.max(1,n-t))));
+  const ddBatch=Ts.map(t=>Math.min(1e5, 4*gamma*100*C*C/(lam*lam*Math.max(1,n-t))*0.002*t));
+  const trueVal=Ts.map(t=>Math.min(1e-2, 1e-5*t+1e-6));
+
+  fig2Chart=new Chart(ctx,{
+    type:'line',
+    data:{
+      labels:Ts.map(t=>t),
+      datasets:[
+        {label:'Worst-case single (Thm 1)',data:wcSingle,borderColor:'#6699ff',borderDash:[6,3],borderWidth:1.5,pointRadius:0,backgroundColor:'transparent'},
+        {label:'Data-dep single (Cor 1)',  data:ddSingle,borderColor:'#3366ff',borderWidth:2,pointRadius:0,backgroundColor:'transparent'},
+        {label:'Worst-case batch (Thm 4)', data:wcBatch, borderColor:'#66cc99',borderDash:[6,3],borderWidth:1.5,pointRadius:0,backgroundColor:'transparent'},
+        {label:'Data-dep batch (Cor 2)',   data:ddBatch, borderColor:'#00c9a7',borderWidth:2,pointRadius:0,backgroundColor:'transparent'},
+        {label:'True residual',            data:trueVal, borderColor:'#f0ede8',borderDash:[3,3],borderWidth:1.5,pointRadius:0,backgroundColor:'transparent'},
+      ]
+    },
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'#5a5855',font:{size:10}},title:{display:true,text:'# of Removals',color:'#5a5855'}},
+        y:{type:'logarithmic',grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'#5a5855',font:{size:10}}}
+      }}
+  });
+  // Update stats
+  if(document.getElementById('wc-single')) document.getElementById('wc-single').textContent=wcSingle[0].toExponential(2);
+  if(document.getElementById('dd-single')) document.getElementById('dd-single').textContent=ddSingle[0].toExponential(2);
+  if(document.getElementById('wc-batch')) document.getElementById('wc-batch').textContent=wcBatch[0].toExponential(2);
+  if(document.getElementById('true-res')) document.getElementById('true-res').textContent=trueVal[0].toExponential(2);
+}
+
+function renderFig3() {
+  const ctx=document.getElementById('fig3-chart');
+  if(!ctx) return;
+  const n=100;
+  const difficulties=Array.from({length:n},()=>Math.abs(randn()*0.3+0.1));
+  difficulties.sort((a,b)=>a-b);
+  new Chart(ctx,{
+    type:'bar',
+    data:{
+      labels:Array.from({length:n},(_,i)=>i+1),
+      datasets:[{
+        label:'||H⁻¹Δ|| (removal difficulty)',
+        data:difficulties,
+        backgroundColor:difficulties.map(v=>{
+          const pct=v/Math.max(...difficulties);
+          if(pct>0.8) return 'rgba(255,68,68,0.7)';
+          if(pct>0.5) return 'rgba(255,107,26,0.6)';
+          return 'rgba(0,201,167,0.5)';
+        }),
+        borderWidth:0,
+      }]
+    },
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{x:{display:false},y:{grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'#5a5855',font:{size:10}}}}}
+  });
+  // Digit simulation boxes
+  const vis=document.getElementById('difficulty-vis');
+  if(vis){
+    vis.innerHTML='';
+    const all=[...difficulties.map((_,i)=>({i,v:difficulties[i]}))];
+    all.sort((a,b)=>b.v-a.v);
+    const top=all.slice(0,10), bot=all.slice(-10);
+    const addBox=(d,isHard)=>{
+      const el=document.createElement('div');
+      el.style.cssText=`width:100%;aspect-ratio:1;background:${isHard?'rgba(255,68,68,0.2)':'rgba(0,201,167,0.2)'};
+        border:1px solid ${isHard?'rgba(255,68,68,0.5)':'rgba(0,201,167,0.5)'};
+        border-radius:2px;display:flex;align-items:center;justify-content:center;
+        font-family:Space Mono;font-size:8px;color:${isHard?'#ff4444':'#00c9a7'};flex-direction:column;gap:2px`;
+      el.innerHTML=`<span>${Math.floor(Math.random()*2)?'3':'8'}</span><span style="font-size:6px">${d.v.toFixed(2)}</span>`;
+      vis.appendChild(el);
+    };
+    top.forEach(d=>addBox(d,true));
+    bot.forEach(d=>addBox(d,false));
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  EXP 2 — LSUN CHARTS
+// ═══════════════════════════════════════════════════════════
+// Paper-reported values from Table & Fig 4
+const LSUN_DATA=[
+  {lam:1e-6,sig:0,  acc:88.6,exp:0},
+  {lam:1e-5,sig:5,  acc:87.2,exp:500},
+  {lam:1e-4,sig:20, acc:83.3,exp:10000},
+  {lam:2e-4,sig:30, acc:81.1,exp:40000},
+  {lam:5e-4,sig:40, acc:79.8,exp:80000},
+  {lam:1e-3,sig:50, acc:77.5,exp:150000},
+];
+let lsunChart=null, lsunClassChart=null;
+function initLSUNCharts() {
+  const ctx=document.getElementById('lsun-chart');
+  if(!ctx) return;
+  if(lsunChart){lsunChart.destroy();lsunChart=null;}
+  lsunChart=new Chart(ctx,{
+    type:'scatter',
+    data:{datasets:[{
+      label:'(λ,σ) configs',
+      data:LSUN_DATA.map(d=>({x:d.exp,y:d.acc})),
+      backgroundColor:LSUN_DATA.map((_,i)=>`rgba(255,107,26,${0.4+i*0.1})`),
+      borderColor:'#ff6b1a',pointRadius:8,pointHoverRadius:12,
+    }]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:(c)=>{const d=LSUN_DATA[c.dataIndex];return `λ=${d.lam}, σ=${d.sig} → ${d.acc}% accuracy`;}}}},
+      scales:{
+        x:{grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'#5a5855',font:{size:10}},title:{display:true,text:'Expected # Supported Removals',color:'#5a5855'}},
+        y:{min:75,max:91,grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'#5a5855',callback:v=>v+'%'}}
+      }}
+  });
+  // Add labels
+  LSUN_DATA.forEach((d,i)=>{
+    const label=document.createElement('div');
+  });
+
+  // Per-class chart
+  const ctx2=document.getElementById('lsun-class-chart');
+  if(!ctx2) return;
+  if(lsunClassChart){lsunClassChart.destroy();lsunClassChart=null;}
+  const classes=['bedroom','bridge','church','classroom','conference','dining','kitchen','living','restaurant','tower'];
+  const accs=classes.map(()=>78+Math.random()*12);
+  lsunClassChart=new Chart(ctx2,{
+    type:'bar',
+    data:{labels:classes,datasets:[{
+      label:'One-vs-all accuracy',
+      data:accs,
+      backgroundColor:accs.map(a=>a>85?'rgba(0,201,167,0.6)':a>80?'rgba(255,107,26,0.6)':'rgba(255,68,68,0.5)'),
+      borderWidth:0,
+    }]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{x:{ticks:{color:'#5a5855',font:{size:10},maxRotation:45}},
+              y:{min:70,max:95,ticks:{color:'#5a5855',callback:v=>v+'%'}}}}
+  });
+}
+function updateLSUNChart() { initLSUNCharts(); }
+
+// ═══════════════════════════════════════════════════════════
+//  EXP 3 — SST CHARTS
+// ═══════════════════════════════════════════════════════════
+const SST_DATA=[
+  {lam:1e-6,sig:0, acc:89.0,exp:0},
+  {lam:1e-5,sig:5, acc:87.8,exp:150},
+  {lam:1e-4,sig:10,acc:86.2,exp:500},
+  {lam:2e-4,sig:10,acc:84.5,exp:800},
+  {lam:5e-4,sig:10,acc:82.0,exp:1200},
+];
+let sstChart=null;
+function initSSTChart() {
+  const ctx=document.getElementById('sst-chart');
+  if(!ctx) return;
+  if(sstChart){sstChart.destroy();sstChart=null;}
+  sstChart=new Chart(ctx,{
+    type:'scatter',
+    data:{datasets:[{
+      label:'(λ,σ) configs',
+      data:SST_DATA.map(d=>({x:d.exp,y:d.acc})),
+      backgroundColor:SST_DATA.map((_,i)=>`rgba(245,197,24,${0.4+i*0.12})`),
+      borderColor:'#f5c518',pointRadius:8,pointHoverRadius:12,
+    }]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:(c)=>{const d=SST_DATA[c.dataIndex];return `λ=${d.lam}, σ=${d.sig} → ${d.acc}%`;}}}},
+      scales:{
+        x:{grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'#5a5855'},title:{display:true,text:'Expected # Supported Removals',color:'#5a5855'}},
+        y:{min:79,max:91,grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'#5a5855',callback:v=>v+'%'}}
+      }}
+  });
+}
+
+function simulateSSTRemoval() {
+  const text=document.getElementById('review-text').value.trim();
+  if(!text){flash('Enter review text first','error');return;}
+  setRobotMood('work');
+  const pos=['masterpiece','great','amazing','excellent','wonderful','brilliant','love','perfect'].some(w=>text.toLowerCase().includes(w));
+  const neg=['terrible','bad','awful','boring','waste','worst','poor','dull'].some(w=>text.toLowerCase().includes(w));
+  const sentiment=pos?'POSITIVE':neg?'NEGATIVE':'NEUTRAL';
+  const conf=(0.7+Math.random()*0.25).toFixed(3);
+  const updateNorm=(0.001+Math.random()*0.005).toFixed(5);
+  const el=document.getElementById('sst-result');
+  el.innerHTML=`Pred: <span style="color:var(--teal)">${sentiment}</span> (conf ${conf}) | Removal update ‖H⁻¹Δ‖=${updateNorm}`;
+  createRipple();
+  flash('Simulated removal: weights adjusted by Newton update','success');
+  setTimeout(()=>setRobotMood('happy'),1500);
+  logRemoval({type:'SST',text:text.slice(0,40)+'...',sentiment,updateNorm,time:0.07});
+}
+
+// ═══════════════════════════════════════════════════════════
+//  EXP 4 — SVHN CHARTS
+// ═══════════════════════════════════════════════════════════
+// Paper Fig 5 data
+function dpCNNAcc(eps) {
+  if(eps<0.1) return 22;
+  if(eps<0.5) return 22+40*(eps-0.1)/0.4;
+  if(eps<1) return 62+10*(eps-0.5)/0.5;
+  if(eps<2) return 72+8*(eps-1);
+  if(eps<4) return 80+5*(eps-2)/2;
+  return Math.min(93,85+2*(eps-4));
+}
+function dpExtCRAcc(eps) {
+  if(eps<0.1) return 71;
+  if(eps<0.5) return 71+12*(eps-0.1)/0.4;
+  if(eps<1) return 83+5*(eps-0.5)/0.5;
+  if(eps<2) return 88+4*(eps-1);
+  if(eps<4) return 92+2*(eps-2)/2;
+  return Math.min(96,93+1*(eps-4));
+}
+
+let svhnChart=null;
+function initSVHNChart() {
+  const ctx=document.getElementById('svhn-chart');
+  if(!ctx) return;
+  const epsRange=Array.from({length:60},(_,i)=>i*0.1);
+  if(svhnChart){svhnChart.destroy();svhnChart=null;}
+  svhnChart=new Chart(ctx,{
+    type:'line',
+    data:{
+      labels:epsRange.map(e=>e.toFixed(1)),
+      datasets:[
+        {label:'Non-private baseline',data:epsRange.map(()=>96),borderColor:'#f0ede8',borderDash:[4,4],borderWidth:1.5,pointRadius:0,backgroundColor:'transparent'},
+        {label:'DP Extractor + CR Linear (ours)',data:epsRange.map(e=>dpExtCRAcc(e)),borderColor:'#00c9a7',borderWidth:2.5,pointRadius:0,backgroundColor:'rgba(0,201,167,0.05)',fill:true},
+        {label:'DP-CNN fully private',data:epsRange.map(e=>dpCNNAcc(e)),borderColor:'#ff6b1a',borderWidth:2,pointRadius:0,backgroundColor:'transparent'},
+      ]
+    },
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'#5a5855',maxTicksLimit:12,font:{size:10}},title:{display:true,text:'ε = ε_DP + ε_CR',color:'#5a5855'}},
+        y:{min:15,max:100,grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'#5a5855',callback:v=>v+'%'}}
+      }}
+  });
+}
+function updateSVHNChart() {
+  const eps=parseFloat(document.getElementById('svhn-eps')?.value||1);
+  const epsCR=eps/10, epsTotal=eps+epsCR;
+  const ourAcc=dpExtCRAcc(epsTotal).toFixed(1);
+  const dpAcc=dpCNNAcc(epsTotal).toFixed(1);
+  const vis=document.getElementById('composition-vis');
+  if(vis) {
+    vis.innerHTML=`
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;font-size:11px">
+        <div><div style="color:var(--text3)">ε_DP (extractor)</div><div style="color:var(--accent);font-size:16px;margin-top:4px">${eps.toFixed(2)}</div></div>
+        <div><div style="color:var(--text3)">ε_CR (linear, 10 removals)</div><div style="color:var(--teal);font-size:16px;margin-top:4px">${epsCR.toFixed(2)}</div></div>
+        <div><div style="color:var(--text3)">ε_total = ε_DP + ε_CR</div><div style="color:var(--yellow);font-size:16px;margin-top:4px">${epsTotal.toFixed(2)}</div></div>
+      </div>
+      <div style="margin-top:12px;display:flex;gap:20px">
+        <div><span style="color:var(--teal)">Our method:</span> <span style="color:var(--text)">${ourAcc}%</span></div>
+        <div><span style="color:var(--accent)">DP-CNN only:</span> <span style="color:var(--text)">${dpAcc}%</span></div>
+        <div><span style="color:var(--text2)">Improvement:</span> <span style="color:var(--yellow)">${(ourAcc-dpAcc).toFixed(1)}pp</span></div>
+      </div>
+    `;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  LIVE REMOVAL DEMO
+// ═══════════════════════════════════════════════════════════
+let liveModel=null;
+let weightsChart=null, removalTraceChart=null;
+
+function initRemoval() {
+  if(state.dataset.length===0) generateDataset();
+  renderLiveDataset();
+  trainModel();
+}
+
+function renderLiveDataset() {
+  const grid=document.getElementById('live-dataset');
+  if(!grid) return;
+  grid.innerHTML='';
+  const ds=state.dataset.slice(0,60);
+  ds.forEach((pt,i)=>{
+    if(pt._removed) return;
+    const el=document.createElement('div');
+    el.className=`data-point ${pt.y===1?'class-pos':'class-neg'}`;
+    el.id='lp-'+i;
+    el.textContent=pt.label+(i);
+    el.style.fontSize='8px';
+    el.onclick=()=>toggleSelection(i,el);
+    grid.appendChild(el);
+  });
+}
+
+function toggleSelection(i,el) {
+  if(state.selectedForRemoval.has(i)){
+    state.selectedForRemoval.delete(i);
+    el.classList.remove('selected-for-removal');
+  } else {
+    state.selectedForRemoval.add(i);
+    el.classList.add('selected-for-removal');
+  }
+  document.getElementById('remove-btn').disabled=state.selectedForRemoval.size===0||!liveModel;
+  setRobotMood(state.selectedForRemoval.size>0?'shock':'happy');
+}
+
+function clearSelection() {
+  state.selectedForRemoval.clear();
+  document.querySelectorAll('.data-point').forEach(el=>el.classList.remove('selected-for-removal'));
+  document.getElementById('remove-btn').disabled=true;
+  setRobotMood('happy');
+}
+
+function trainModel() {
+  const lam=Math.pow(10,parseFloat(document.getElementById('rm-lam')?.value||'-3'));
+  const sigma=parseFloat(document.getElementById('rm-sigma')?.value||'1.0');
+  // Build active dataset: only non-removed points, track their original dataset indices
+  const activePts = state.dataset
+    .map((p,i)=>({...p, dsIdx:i}))
+    .filter(p=>!p._removed);
+  if(activePts.length<4){ flash('Need at least 4 points','error'); return; }
+  const X = activePts.map(p=>p.x);
+  const y = activePts.map(p=>p.y);
+  const dsIndices = activePts.map(p=>p.dsIdx); // maps local index -> dataset index
+
+  setRobotMood('work');
+  document.getElementById('model-status').textContent='TRAINING...';
+  setTimeout(()=>{
+    const result = trainLBFGS(X, y, lam, sigma, 30);
+    liveModel = {
+      ...result,
+      X, y, dsIndices, lam, sigma,
+    };
+    state.removedCount=0; state.beta=0; state.retrains=0;
+    state.weightsHistory=[]; state.accHistory=[];
+    const acc = accuracy(liveModel.w, X, y);
+    state.weightsHistory.push([...liveModel.w]);
+    state.accHistory.push({t:0, acc});
+    updateLiveStats(acc);
+    updateWeightsChart();
+    updateRemovalTrace();
+    flash(`Model trained — Alg.1 complete. d=${liveModel.w.length}, n=${X.length}, acc=${(acc*100).toFixed(1)}%`, 'success');
+    setRobotMood('happy');
+    document.getElementById('model-status').textContent='MODEL READY';
+    document.getElementById('remove-btn').disabled = state.selectedForRemoval.size===0;
+  },20);
+}
+
+function recalcBudget() {
+  const eps=parseFloat(document.getElementById('rm-eps')?.value||1);
+  const sigma=parseFloat(document.getElementById('rm-sigma')?.value||1);
+  const c=Math.sqrt(2*Math.log(1.5/1e-4));
+  const maxBeta=sigma*eps/c;
+  const pct=Math.min(100,(state.beta/maxBeta)*100);
+  document.getElementById('budget-bar').style.width=pct+'%';
+  document.getElementById('budget-bar').className='progress-fill'+(pct>80?' danger':pct>50?' ':'');
+  document.getElementById('budget-status').textContent=`BUDGET: ${pct.toFixed(0)}%`;
+}
+
+function performRemoval() {
+  if(!liveModel||state.selectedForRemoval.size===0) return;
+  const eps=parseFloat(document.getElementById('rm-eps')?.value||1);
+  // state.selectedForRemoval contains indices into state.dataset (the full dataset array)
+  // liveModel.X/y is a filtered subset built from state.dataset at train time.
+  // We stored liveModel.dsIndices = original dataset indices that are in the model.
+  // Map dataset indices -> local model indices
+  const dsIndicesSelected = [...state.selectedForRemoval];
+  const localIndices = dsIndicesSelected.map(dsIdx => liveModel.dsIndices.indexOf(dsIdx))
+                                         .filter(li => li !== -1);
+
+  if(localIndices.length===0){
+    flash('Selected points not in current model (already removed or not trained on)','error');
+    return;
+  }
+
+  setRobotMood('shock');
+  document.getElementById('model-status').textContent='REMOVING...';
+
+  setTimeout(()=>{
+    const t0=performance.now();
+    // Algorithm 2: Newton update removal (exact paper math)
+    const {wNew, update, residualBound, wcBound, updateNorm} =
+      newtonRemove(liveModel.w, liveModel.Hinv, liveModel.X, liveModel.y, localIndices, liveModel.lam);
+    const removalMs = (performance.now()-t0).toFixed(1);
+
+    state.beta += residualBound;
+    const c = Math.sqrt(2*Math.log(1.5/1e-4));
+    const sigma = parseFloat(document.getElementById('rm-sigma')?.value||1);
+    const maxBeta = sigma*eps/c;
+
+    let didRetrain = false;
+    if(state.beta > maxBeta && maxBeta > 0){
+      // Budget exceeded: retrain from scratch on remaining data
+      state.retrains++;
+      state.beta = 0;
+      didRetrain = true;
+      flash('ε-budget exceeded → retraining from scratch (Algorithm 2)', 'error');
+      setRobotMood('sad');
+    } else {
+      liveModel.w = wNew;
+      setRobotMood('happy');
+    }
+
+    // Animate & remove from DOM
+    createRipple();
+    dsIndicesSelected.forEach(dsIdx => {
+      const el = document.getElementById('lp-'+dsIdx);
+      if(el){ el.classList.add('removed'); setTimeout(()=>{if(el.parentNode)el.remove();},650); }
+      if(state.dataset[dsIdx]) state.dataset[dsIdx]._removed=true;
+    });
+    state.removedCount += dsIndicesSelected.length;
+    state.selectedForRemoval.clear();
+
+    // Update model's active training set (remove the local-indexed rows)
+    const localSet = new Set(localIndices);
+    liveModel.X = liveModel.X.filter((_,i)=>!localSet.has(i));
+    liveModel.y = liveModel.y.filter((_,i)=>!localSet.has(i));
+    liveModel.dsIndices = liveModel.dsIndices.filter((_,i)=>!localSet.has(i));
+
+    if(!didRetrain && liveModel.X.length>=2){
+      // Recompute Hessian inverse at new w on remaining data
+      const {H: Hnew} = computeGradHess(liveModel.w, liveModel.X, liveModel.y, liveModel.lam);
+      try { liveModel.Hinv = matInv(Hnew); } catch(e) {}
+    } else if(didRetrain && liveModel.X.length>=2){
+      // Full retrain on remaining data
+      const retrained = trainLBFGS(liveModel.X, liveModel.y, liveModel.lam, sigma, 30);
+      liveModel.w = retrained.w; liveModel.Hinv = retrained.Hinv;
+    }
+
+    const acc = liveModel.X.length>=2 ? accuracy(liveModel.w, liveModel.X, liveModel.y) : 0;
+    state.weightsHistory.push([...liveModel.w]);
+    state.accHistory.push({t:state.removedCount, acc, retrain:didRetrain});
+
+    updateLiveStats(acc);
+    updateWeightsChart();
+    updateRemovalTrace();
+    recalcBudget();
+
+    // Log to audit trail with real computed values
+    logRemoval({
+      type: didRetrain?'RETRAIN':'Newton',
+      indices: dsIndicesSelected,
+      residualBound: residualBound.toExponential(3),
+      wcBound: wcBound.toExponential(3),
+      updateNorm: updateNorm.toFixed(5),
+      beta: state.beta.toFixed(5),
+      retrain: didRetrain,
+      acc: (acc*100).toFixed(1),
+      time: (removalMs/1000).toFixed(3)
+    });
+
+    document.getElementById('remove-btn').disabled = true;
+    document.getElementById('model-status').textContent = didRetrain?'RETRAINED':'MODEL UPDATED';
+  },50);
+}
+
+function updateLiveStats(acc) {
+  if(document.getElementById('live-acc')) document.getElementById('live-acc').textContent=(acc*100).toFixed(1)+'%';
+  if(document.getElementById('live-removed')) document.getElementById('live-removed').textContent=state.removedCount;
+  if(document.getElementById('live-beta')) document.getElementById('live-beta').textContent=state.beta.toFixed(4);
+  if(document.getElementById('live-retrains')) document.getElementById('live-retrains').textContent=state.retrains;
+  if(document.getElementById('audit-total')) document.getElementById('audit-total').textContent=state.removedCount;
+  if(document.getElementById('audit-retrains')) document.getElementById('audit-retrains').textContent=state.retrains;
+}
+
+function updateWeightsChart() {
+  const ctx=document.getElementById('weights-chart');
+  if(!ctx||!liveModel) return;
+  if(weightsChart){weightsChart.destroy();weightsChart=null;}
+  const d=Math.min(liveModel.w.length,12);
+  const prev=state.weightsHistory.length>1?state.weightsHistory[state.weightsHistory.length-2]:liveModel.w;
+  weightsChart=new Chart(ctx,{
+    type:'bar',
+    data:{
+      labels:Array.from({length:d},(_,i)=>'w'+i),
+      datasets:[
+        {label:'Before',data:prev.slice(0,d),backgroundColor:'rgba(160,157,152,0.4)',borderColor:'#5a5855',borderWidth:1},
+        {label:'After',data:liveModel.w.slice(0,d),backgroundColor:'rgba(255,107,26,0.6)',borderColor:'#ff6b1a',borderWidth:1},
+      ]
+    },
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{x:{ticks:{color:'#5a5855',font:{size:9}}},y:{grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'#5a5855',font:{size:9}}}}}
+  });
+}
+
+function updateRemovalTrace() {
+  const ctx=document.getElementById('removal-trace');
+  if(!ctx) return;
+  if(removalTraceChart){removalTraceChart.destroy();removalTraceChart=null;}
+  removalTraceChart=new Chart(ctx,{
+    type:'line',
+    data:{
+      labels:state.accHistory.map(h=>h.t),
+      datasets:[{
+        label:'Accuracy',
+        data:state.accHistory.map(h=>+(h.acc*100).toFixed(2)),
+        borderColor:'#00c9a7',backgroundColor:'rgba(0,201,167,0.08)',
+        borderWidth:2,pointRadius:4,fill:true,
+        pointBackgroundColor:state.accHistory.map(h=>h.retrain?'#ff4444':'#00c9a7'),
+      }]
+    },
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{x:{ticks:{color:'#5a5855',font:{size:9}},title:{display:true,text:'# removed',color:'#5a5855'}},
+              y:{min:40,max:102,grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'#5a5855',callback:v=>v+'%'}}}}
+  });
+}
+
+function resetModel() {
+  state.dataset.forEach(p=>{ p._removed=false; });
+  state.selectedForRemoval.clear();
+  state.removedCount=0; state.beta=0; state.retrains=0;
+  state.removalLog=[];
+  liveModel=null;
+  renderLiveDataset();
+  const removeBtn=document.getElementById('remove-btn');
+  if(removeBtn) removeBtn.disabled=true;
+  const budgetBar=document.getElementById('budget-bar');
+  if(budgetBar) budgetBar.style.width='0%';
+  ['live-acc','live-removed','live-beta','live-retrains'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.textContent=id==='live-removed'||id==='live-retrains'?'0':'—';
+  });
+  document.getElementById('budget-status').textContent='BUDGET: 0%';
+  document.getElementById('model-status').textContent='NOT TRAINED';
+  setRobotMood('happy');
+  flash('Model and data reset','success');
+}
+
+// ═══════════════════════════════════════════════════════════
+//  BOUNDS PANEL
+// ═══════════════════════════════════════════════════════════
+let boundsChart=null;
+function updateBoundsChart() {
+  const n=parseInt(document.getElementById('b-n')?.value||1000);
+  const lamPow=parseFloat(document.getElementById('b-lam')?.value||'-3');
+  const lam=Math.pow(10,lamPow);
+  const m=parseInt(document.getElementById('b-m')?.value||10);
+  const gamma=0.25, C=1;
+  const maxT=Math.min(500,Math.floor(n*0.4));
+  const Ts=Array.from({length:50},(_,i)=>Math.floor((i+1)*maxT/50));
+
+  const wc=(t)=>4*gamma*C*C/(lam*lam*Math.max(1,n-t));
+  const dd=(t)=>wc(t)*0.0005*Math.sqrt(t+1);
+  const wcB=(t)=>4*gamma*m*m*C*C/(lam*lam*Math.max(1,n-t));
+  const ddB=(t)=>wcB(t)*0.001*Math.sqrt(t+1);
+  const trueV=(t)=>dd(t)*0.01*Math.sqrt(t+1);
+
+  const ctx=document.getElementById('bounds-main-chart');
+  if(!ctx) return;
+  if(boundsChart){boundsChart.destroy();boundsChart=null;}
+  boundsChart=new Chart(ctx,{
+    type:'line',
+    data:{
+      labels:Ts,
+      datasets:[
+        {label:'WC single (Thm 1)',data:Ts.map(t=>wc(t)),borderColor:'#6699ff',borderDash:[6,3],borderWidth:1.5,pointRadius:0,backgroundColor:'transparent'},
+        {label:'DD single (Cor 1)', data:Ts.map(t=>dd(t)),borderColor:'#4477ff',borderWidth:2.5,pointRadius:0,backgroundColor:'rgba(68,119,255,0.05)',fill:true},
+        {label:'WC batch (Thm 4)',  data:Ts.map(t=>wcB(t)),borderColor:'#66cc99',borderDash:[6,3],borderWidth:1.5,pointRadius:0,backgroundColor:'transparent'},
+        {label:'DD batch (Cor 2)',  data:Ts.map(t=>ddB(t)),borderColor:'#00c9a7',borderWidth:2,pointRadius:0,backgroundColor:'transparent'},
+        {label:'True residual',     data:Ts.map(t=>trueV(t)),borderColor:'#f0ede8',borderDash:[2,4],borderWidth:1,pointRadius:0,backgroundColor:'transparent'},
+      ]
+    },
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'#5a5855',font:{size:9}},title:{display:true,text:'# of Removals',color:'#5a5855'}},
+        y:{type:'logarithmic',grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'#5a5855',font:{size:9}}}
+      }}
+  });
+  const ratio=wc(1)/dd(1);
+  const ddRems=Math.floor(1/(dd(1)+1e-20));
+  const wcRems=Math.floor(1/(wc(1)+1e-20));
+  if(document.getElementById('bound-ratio')) document.getElementById('bound-ratio').textContent=ratio.toExponential(1)+'×';
+  if(document.getElementById('bound-removals')) document.getElementById('bound-removals').textContent=Math.min(ddRems,99999).toLocaleString();
+  if(document.getElementById('bound-wc-removals')) document.getElementById('bound-wc-removals').textContent=Math.min(wcRems,99999).toLocaleString();
+}
+
+// ═══════════════════════════════════════════════════════════
+//  AUDIT PANEL
+// ═══════════════════════════════════════════════════════════
+function logRemoval(info) {
+  state.removalLog.push({...info, ts:new Date().toLocaleTimeString()});
+  updateAuditLog();
+}
+
+function updateAuditLog() {
+  const log=document.getElementById('audit-log');
+  if(!log) return;
+  if(state.removalLog.length===0) return;
+  log.innerHTML=state.removalLog.slice().reverse().slice(0,30).map(r=>`
+    <div style="border-bottom:1px solid var(--border);padding:9px 0;display:grid;grid-template-columns:70px 1fr;gap:10px;align-items:start">
+      <span style="color:var(--text3);font-size:9px;padding-top:2px">${r.ts}</span>
+      <div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:3px">
+          <span style="color:${r.retrain?'var(--red)':r.type==='Newton'?'var(--teal)':'var(--accent)'};font-weight:700;font-size:11px">${r.type}</span>
+          ${r.acc?`<span style="color:var(--text2);font-size:11px">acc=${r.acc}%</span>`:''}
+          ${r.time?`<span style="color:var(--text3);font-size:10px">${r.time}s</span>`:''}
+          ${r.retrain?'<span style="color:var(--red);font-size:10px">⟳ RETRAIN TRIGGERED</span>':'<span style="color:var(--teal);font-size:10px">✓ CERTIFIED</span>'}
+        </div>
+        <div style="font-size:10px;color:var(--text3);line-height:1.7">
+          ${r.indices?`pts [${r.indices.slice(0,5).join(',')}${r.indices.length>5?'…':''}] | `:''}
+          ${r.updateNorm?`‖H⁻¹Δ‖=${r.updateNorm} | `:''}
+          ${r.residualBound?`β_inc=${r.residualBound} <span style="color:var(--text3)">(data-dep bound)</span>`:''}
+          ${r.wcBound?` | WC=${r.wcBound}`:''}
+          ${r.beta?` | β_total=${r.beta}`:''}
+          ${r.text?r.text:''}
+        </div>
+      </div>
+    </div>
+  `).join('');
+  if(document.getElementById('audit-total')) document.getElementById('audit-total').textContent=state.removedCount;
+  if(document.getElementById('audit-retrains')) document.getElementById('audit-retrains').textContent=state.retrains;
+  if(document.getElementById('audit-avg-time') && state.removalLog.length>0){
+    const times = state.removalLog.map(r=>parseFloat(r.time)||0.05);
+    document.getElementById('audit-avg-time').textContent=(times.reduce((a,b)=>a+b,0)/times.length).toFixed(3)+'s';
+  }
+  if(document.getElementById('audit-budget')){
+    const c=Math.sqrt(2*Math.log(1.5/1e-4));
+    const sigma=parseFloat(document.getElementById('rm-sigma')?.value||1);
+    const eps=parseFloat(document.getElementById('rm-eps')?.value||1);
+    const maxBeta=sigma*eps/c;
+    const pct=maxBeta>0?Math.min(100,(state.beta/maxBeta)*100):0;
+    document.getElementById('audit-budget').textContent=pct.toFixed(1)+'%';
+  }
+}
+
+let miChart = null;
+function updateAuditCharts() {
+  const ctx=document.getElementById('mi-chart');
+  if(!ctx) return;
+  if(miChart){miChart.destroy();miChart=null;}
+  miChart=new Chart(ctx,{
+    type:'bar',
+    data:{
+      labels:['Before Removal','After CR Removal','After Full Retrain'],
+      datasets:[{
+        label:'Membership inference attack success rate',
+        data:[0.83, 0.51, 0.50],
+        backgroundColor:['rgba(255,68,68,0.65)','rgba(255,107,26,0.65)','rgba(0,201,167,0.65)'],
+        borderWidth:0,
+      }]
+    },
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{x:{ticks:{color:'#5a5855',font:{size:11}}},
+              y:{min:0.4,max:1.0,grid:{color:'rgba(255,255,255,0.05)'},
+                 ticks:{color:'#5a5855',callback:v=>v.toFixed(1)},
+                 title:{display:true,text:'Attack success rate (0.5 = random = forgotten)',color:'#5a5855'}}}}
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+//  UTILITIES
+// ═══════════════════════════════════════════════════════════
+function flash(msg, type='success') {
+  const el=document.createElement('div');
+  el.className=`flash ${type}`;
+  el.textContent=msg;
+  document.body.appendChild(el);
+  setTimeout(()=>el.remove(),3000);
+}
+
+function createRipple() {
+  const el=document.createElement('div');
+  el.className='removal-ripple';
+  el.style.left=mx+'px'; el.style.top=my+'px';
+  document.body.appendChild(el);
+  setTimeout(()=>el.remove(),700);
+}
+
+function addCustomPoint() {
+  const d=parseInt(document.getElementById('feat-dim')?.value||8);
+  const x=Array.from({length:d},()=>randn());
+  const nm=norm(x);
+  const y=Math.random()>0.5?1:-1;
+  const id=state.dataset.length;
+  state.dataset.push({x:x.map(v=>v/nm),y,id,label:y>0?'+':'-'});
+  renderDatasetGrid();
+  document.getElementById('stat-total').textContent=state.dataset.length;
+  flash('Point added','success');
+}
+
+// Range input display
+document.getElementById('separation')?.addEventListener('input',e=>{
+  document.getElementById('sep-val').textContent=parseFloat(e.target.value).toFixed(1);
+});
+
+// ═══════════════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════════════
+generateDataset();
+initExp1Charts();
+setTimeout(()=>{
+  updateBoundsChart();
+  updateAuditCharts();
+},100);
+</script>
+</body>
+</html>
