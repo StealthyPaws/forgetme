@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>FORGET — Certified Data Removal System</title>
+<title>FORGETME: Certified Data Removal System</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500;600&display=swap');
@@ -557,16 +557,16 @@ select option { background: var(--bg3); }
 
     <div class="nav-section">EXPERIMENTS</div>
     <div class="nav-item" onclick="navigate('exp1',this)">
-      <div class="nav-dot"></div>Exp 1 — MNIST Linear
+      <div class="nav-dot"></div>Exp 1: MNIST Linear
     </div>
     <div class="nav-item" onclick="navigate('exp2',this)">
-      <div class="nav-dot"></div>Exp 2 — LSUN Extractor
+      <div class="nav-dot"></div>Exp 2: LSUN Extractor
     </div>
     <div class="nav-item" onclick="navigate('exp3',this)">
-      <div class="nav-dot"></div>Exp 3 — SST Sentiment
+      <div class="nav-dot"></div>Exp 3: SST Sentiment
     </div>
     <div class="nav-item" onclick="navigate('exp4',this)">
-      <div class="nav-dot"></div>Exp 4 — SVHN DP
+      <div class="nav-dot"></div>Exp 4: SVHN DP
     </div>
 
     <div class="nav-section">REMOVAL</div>
@@ -588,7 +588,7 @@ select option { background: var(--bg3); }
     <div class="panel active" id="panel-overview">
       <div class="exp-badge">PAPER OVERVIEW</div>
       <div class="panel-title"><span class="accent">Certified</span> Data Removal</div>
-      <div class="panel-sub">Guo, Goldstein, Hannun, Van der Maaten — ICML 2020. Remove training data from ML models with formal privacy guarantees, without full retraining.</div>
+      <div class="panel-sub">Guo, Goldstein, Hannun, Van der Maaten at ICML 2020. Remove training data from ML models with formal privacy guarantees, without full retraining.</div>
 
       <div class="grid4">
         <div class="card">
@@ -620,7 +620,7 @@ select option { background: var(--bg3); }
       </div>
 
       <div class="chart-card">
-        <div class="chart-title">PAPER FIGURE MAP — click a node to navigate</div>
+        <div class="chart-title">PAPER FIGURE MAP, click a node to navigate</div>
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:8px">
           <div class="card" style="cursor:none;text-align:center;padding:14px" onclick="navigate('exp1',document.querySelector('[onclick*=exp1]'))">
             <div style="font-family:var(--mono);font-size:10px;color:var(--accent);letter-spacing:1px">FIG 1,2,3</div>
@@ -646,7 +646,7 @@ select option { background: var(--bg3); }
       </div>
 
       <div class="chart-card">
-        <div class="chart-title">ALGORITHM FLOW — training to removal</div>
+        <div class="chart-title">ALGORITHM FLOW: training to removal</div>
         <div style="display:flex;align-items:center;gap:0;margin-top:8px;overflow-x:auto;padding-bottom:4px">
           <div style="text-align:center;min-width:110px">
             <div style="background:var(--bg3);border:1px solid var(--border);border-radius:3px;padding:10px 8px;font-family:var(--mono);font-size:11px;color:var(--text2)">Dataset D<br><span style="color:var(--text3);font-size:9px">n samples</span></div>
@@ -724,7 +724,7 @@ select option { background: var(--bg3); }
       </div>
 
       <div class="chart-card">
-        <div class="chart-title">DATASET VISUALIZATION — click points to select for removal</div>
+        <div class="chart-title">DATASET VISUALIZATION: click points to select for removal</div>
         <div class="dataset-grid" id="dataset-grid"></div>
         <div style="margin-top:12px;font-family:var(--mono);font-size:11px;color:var(--text3)">
           <span style="color:var(--teal)">■</span> Positive (+1) &nbsp;&nbsp; <span style="color:var(--accent)">■</span> Negative (-1) &nbsp;&nbsp; <span style="color:var(--red)">■</span> Selected for removal
@@ -739,7 +739,7 @@ select option { background: var(--bg3); }
 
     <!-- EXP 1 PANEL — MNIST -->
     <div class="panel" id="panel-exp1">
-      <div class="exp-badge">EXPERIMENT 1 — §4.1 MNIST</div>
+      <div class="exp-badge">EXPERIMENT 1: §4.1 MNIST</div>
       <div class="panel-title"><span class="accent">Linear</span> Logistic Regression</div>
       <div class="panel-sub">MNIST digits 3 vs 8. Effect of λ and σ on test accuracy and expected removals. Replicates Figures 1, 2, 3.</div>
 
@@ -788,16 +788,16 @@ select option { background: var(--bg3); }
           </div>
         </div>
         <div class="chart-card" style="margin-top:16px">
-          <div class="chart-title">FIG 1 LEFT — test accuracy vs σ for multiple λ values</div>
+          <div class="chart-title">FIG 1 LEFT: test accuracy vs σ for multiple λ values</div>
           <div style="position:relative;height:260px"><canvas id="fig1-left" role="img" aria-label="Line chart: test accuracy vs noise std sigma for 4 lambda values on MNIST"></canvas></div>
         </div>
         <div class="grid2" style="margin-top:16px">
           <div class="chart-card" style="margin-top:0">
-            <div class="chart-title">FIG 1 MID — accuracy vs ε</div>
+            <div class="chart-title">FIG 1 MID: accuracy vs ε</div>
             <div style="position:relative;height:220px"><canvas id="fig1-mid" role="img" aria-label="Accuracy vs epsilon for multiple lambda values"></canvas></div>
           </div>
           <div class="chart-card" style="margin-top:0">
-            <div class="chart-title">FIG 1 RIGHT — accuracy vs removals</div>
+            <div class="chart-title">FIG 1 RIGHT: accuracy vs removals</div>
             <div style="position:relative;height:220px"><canvas id="fig1-right" role="img" aria-label="Accuracy vs expected number of removals"></canvas></div>
           </div>
         </div>
@@ -811,7 +811,7 @@ select option { background: var(--bg3); }
           The data-dependent bound is orders of magnitude tighter than worst-case.
         </div>
         <div class="chart-card" style="margin-top:0">
-          <div class="chart-title">FIG 2 — gradient residual norm vs # removals (log scale)</div>
+          <div class="chart-title">FIG 2: gradient residual norm vs # removals (log scale)</div>
           <div style="position:relative;height:320px"><canvas id="fig2-chart" role="img" aria-label="Gradient residual norm bounds on log scale as removals increase"></canvas></div>
         </div>
         <div class="grid4" style="margin-top:16px">
@@ -836,22 +836,22 @@ select option { background: var(--bg3); }
 
       <div id="exp1-difficulty" style="display:none">
         <div class="info-box teal">
-          FIG 3: Training samples ranked by ‖H⁻¹Δ‖₂ — the Newton update norm. High norm = high removal cost = model memorized this point more. Atypical/outlier digits (misshapen 3s and 8s) have highest cost. Prototypical digits have lowest cost.
+          FIG 3: Training samples ranked by ‖H⁻¹Δ‖₂; the Newton update norm. High norm = high removal cost = model memorized this point more. Atypical/outlier digits (misshapen 3s and 8s) have highest cost. Prototypical digits have lowest cost.
         </div>
         <div class="chart-card" style="margin-top:0">
-          <div class="chart-title">FIG 3 — removal difficulty distribution</div>
+          <div class="chart-title">FIG 3: removal difficulty distribution</div>
           <div style="position:relative;height:240px"><canvas id="fig3-chart" role="img" aria-label="Histogram of removal difficulty scores for training points"></canvas></div>
         </div>
         <div style="margin-top:16px">
-          <div style="font-family:var(--mono);font-size:11px;color:var(--text3);margin-bottom:8px">SIMULATED DIGITS — top 10 hardest (high ‖H⁻¹Δ‖) vs bottom 10 easiest</div>
+          <div style="font-family:var(--mono);font-size:11px;color:var(--text3);margin-bottom:8px">SIMULATED DIGITS: top 10 hardest (high ‖H⁻¹Δ‖) vs bottom 10 easiest</div>
           <div id="difficulty-vis" style="display:grid;grid-template-columns:repeat(20,1fr);gap:4px"></div>
         </div>
       </div>
     </div>
 
-    <!-- EXP 2 PANEL — LSUN -->
+    <!-- EXP 2 PANEL: LSUN -->
     <div class="panel" id="panel-exp2">
-      <div class="exp-badge">EXPERIMENT 2 — §4.2 LSUN</div>
+      <div class="exp-badge">EXPERIMENT 2: §4.2 LSUN</div>
       <div class="panel-title"><span class="accent">Public Extractor</span> + CR Linear</div>
       <div class="panel-sub">LSUN scene classification (10 classes). ResNeXt-101 features (pretrained on 1B Instagram images). 10 one-vs-all CR classifiers. Replicates Figure 4 Left.</div>
 
@@ -898,24 +898,24 @@ select option { background: var(--bg3); }
       </div>
 
       <div class="chart-card">
-        <div class="chart-title">FIG 4 LEFT — accuracy vs expected removals trade-off (LSUN)</div>
+        <div class="chart-title">FIG 4 LEFT: accuracy vs expected removals trade-off (LSUN)</div>
         <div style="position:relative;height:300px"><canvas id="lsun-chart" role="img" aria-label="Scatter plot of accuracy vs expected removals for LSUN with different lambda sigma configs"></canvas></div>
       </div>
 
       <div class="chart-card" style="margin-top:16px">
-        <div class="chart-title">10-CLASS ACCURACY BREAKDOWN — one-vs-all classifiers</div>
+        <div class="chart-title">10-CLASS ACCURACY BREAKDOWN: one-vs-all classifiers</div>
         <div style="position:relative;height:220px"><canvas id="lsun-class-chart" role="img" aria-label="Per-class accuracy for LSUN 10-way classification"></canvas></div>
       </div>
     </div>
 
-    <!-- EXP 3 PANEL — SST -->
+    <!-- EXP 3 PANEL: SST -->
     <div class="panel" id="panel-exp3">
-      <div class="exp-badge">EXPERIMENT 3 — §4.2 SST</div>
+      <div class="exp-badge">EXPERIMENT 3: §4.2 SST</div>
       <div class="panel-title"><span class="accent">RoBERTa</span> + CR Linear</div>
       <div class="panel-sub">Stanford Sentiment Treebank binary sentiment. RoBERTa [CLS] embeddings as features. Replicates Figure 4 Right.</div>
 
       <div class="info-box yellow">
-        SETUP: SST-2 binary sentiment (positive/negative movie reviews). RoBERTa pretrained on public text — no removal from LM. CR linear classifier on 768-dim [CLS] embeddings. Base accuracy 89.0% matches prior work (Tai et al. 2015). Removal time 0.07s vs 61.5s retraining (878× faster).
+        SETUP: SST-2 binary sentiment (positive/negative movie reviews). RoBERTa pretrained on public text, no removal from LM. CR linear classifier on 768-dim [CLS] embeddings. Base accuracy 89.0% matches prior work (Tai et al. 2015). Removal time 0.07s vs 61.5s retraining (878× faster).
       </div>
 
       <div class="grid4">
@@ -942,7 +942,7 @@ select option { background: var(--bg3); }
       </div>
 
       <div class="chart-card">
-        <div class="chart-title">FIG 4 RIGHT — accuracy vs expected removals trade-off (SST)</div>
+        <div class="chart-title">FIG 4 RIGHT: accuracy vs expected removals trade-off (SST)</div>
         <div style="position:relative;height:300px"><canvas id="sst-chart" role="img" aria-label="Scatter plot of accuracy vs expected removals for SST with different lambda sigma configs"></canvas></div>
       </div>
 
@@ -961,9 +961,9 @@ select option { background: var(--bg3); }
       </div>
     </div>
 
-    <!-- EXP 4 PANEL — SVHN DP -->
+    <!-- EXP 4 PANEL: SVHN DP -->
     <div class="panel" id="panel-exp4">
-      <div class="exp-badge">EXPERIMENT 4 — §4.3 SVHN</div>
+      <div class="exp-badge">EXPERIMENT 4: §4.3 SVHN</div>
       <div class="panel-title"><span class="accent">DP Extractor</span> + CR Linear</div>
       <div class="panel-sub">Street View House Numbers with differentially private CNN extractor. Replicates Figure 5: ε vs accuracy trade-off.</div>
 
@@ -996,7 +996,7 @@ select option { background: var(--bg3); }
 
       <div style="margin-top:16px">
         <div class="input-group">
-          <label class="input-label">ε_DP (DP BUDGET) — drag to explore trade-off</label>
+          <label class="input-label">ε_DP (DP BUDGET): drag to explore trade-off</label>
           <input type="range" id="svhn-eps" min="0.05" max="6" step="0.05" value="1"
             oninput="document.getElementById('svhn-eps-v').textContent=parseFloat(this.value).toFixed(2);updateSVHNChart()">
           <span id="svhn-eps-v" style="font-family:var(--mono);font-size:12px;color:var(--accent)">1.00</span>
@@ -1004,19 +1004,19 @@ select option { background: var(--bg3); }
       </div>
 
       <div class="chart-card">
-        <div class="chart-title">FIG 5 — ε_total vs test accuracy (supports 10 removals)</div>
+        <div class="chart-title">FIG 5: ε_total vs test accuracy (supports 10 removals)</div>
         <div style="position:relative;height:300px"><canvas id="svhn-chart" role="img" aria-label="Line chart comparing DP CNN vs DP Extractor plus CR Linear accuracy across epsilon values"></canvas></div>
       </div>
 
       <div class="chart-card" style="margin-top:16px">
-        <div class="chart-title">COMPOSITION THEOREM 5 — privacy budget breakdown at current ε_DP</div>
+        <div class="chart-title">COMPOSITION THEOREM 5: privacy budget breakdown at current ε_DP</div>
         <div id="composition-vis" style="margin-top:12px;font-family:var(--mono);font-size:12px"></div>
       </div>
     </div>
 
     <!-- LIVE REMOVAL PANEL -->
     <div class="panel" id="panel-removal">
-      <div class="exp-badge">ALGORITHM 2 — LIVE DEMO</div>
+      <div class="exp-badge">ALGORITHM 2: LIVE DEMO</div>
       <div class="panel-title"><span class="accent">Live</span> Removal Demo</div>
       <div class="panel-sub">Select data points and watch the Newton update remove them in real time. See weights shift and budget deplete.</div>
 
@@ -1075,7 +1075,7 @@ select option { background: var(--bg3); }
       </div>
 
       <div class="chart-card">
-        <div class="chart-title">TRAINING DATA — click to select, then remove</div>
+        <div class="chart-title">TRAINING DATA: click to select, then remove</div>
         <div class="dataset-grid" id="live-dataset"></div>
         <div style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap">
           <button class="btn primary" onclick="trainModel()">TRAIN MODEL (Alg.1)</button>
@@ -1087,7 +1087,7 @@ select option { background: var(--bg3); }
 
       <div class="grid2" style="margin-top:16px">
         <div class="chart-card" style="margin-top:0">
-          <div class="chart-title">MODEL WEIGHTS w — before vs after removal</div>
+          <div class="chart-title">MODEL WEIGHTS w, before vs after removal</div>
           <div style="position:relative;height:200px"><canvas id="weights-chart" role="img" aria-label="Bar chart comparing model weights before and after data removal"></canvas></div>
         </div>
         <div class="chart-card" style="margin-top:0">
@@ -1099,7 +1099,7 @@ select option { background: var(--bg3); }
 
     <!-- RESIDUAL BOUNDS PANEL -->
     <div class="panel" id="panel-bounds">
-      <div class="exp-badge">THEOREMS 1 & 4 — RESIDUAL BOUNDS</div>
+      <div class="exp-badge">THEOREMS 1 & 4: RESIDUAL BOUNDS</div>
       <div class="panel-title"><span class="accent">Gradient</span> Residual Analysis</div>
       <div class="panel-sub">Explore how worst-case vs. data-dependent bounds compare across different parameter settings.</div>
 
@@ -1136,7 +1136,7 @@ select option { background: var(--bg3); }
       </div>
 
       <div class="chart-card">
-        <div class="chart-title">RESIDUAL BOUNDS vs # REMOVALS (log scale) — Fig 2 replica</div>
+        <div class="chart-title">RESIDUAL BOUNDS vs # REMOVALS (log scale): Fig 2 replica</div>
         <div style="position:relative;height:320px"><canvas id="bounds-main-chart" role="img" aria-label="Log scale chart comparing residual bound types over number of removals"></canvas></div>
       </div>
       <div class="grid3" style="margin-top:16px">
@@ -1191,7 +1191,7 @@ select option { background: var(--bg3); }
       </div>
 
       <div class="chart-card" style="margin-top:16px">
-        <div class="chart-title">MEMBERSHIP INFERENCE RESISTANCE — simulated adversary test</div>
+        <div class="chart-title">MEMBERSHIP INFERENCE RESISTANCE: simulated adversary test</div>
         <div style="position:relative;height:220px"><canvas id="mi-chart" role="img" aria-label="Bar chart showing membership inference attack success rate before and after certified removal"></canvas></div>
       </div>
     </div>
@@ -1980,7 +1980,7 @@ function trainModel() {
     updateLiveStats(acc);
     updateWeightsChart();
     updateRemovalTrace();
-    flash(`Model trained — Alg.1 complete. d=${liveModel.w.length}, n=${X.length}, acc=${(acc*100).toFixed(1)}%`, 'success');
+    flash(`Model trained... Alg.1 complete. d=${liveModel.w.length}, n=${X.length}, acc=${(acc*100).toFixed(1)}%`, 'success');
     setRobotMood('happy');
     document.getElementById('model-status').textContent='MODEL READY';
     document.getElementById('remove-btn').disabled = state.selectedForRemoval.size===0;
