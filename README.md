@@ -4,7 +4,7 @@
 **Certified Data Removal from Machine Learning Models (ICML 2020)**  
 https://proceedings.mlr.press/v119/guo20c/guo20c.pdf
 
-**Demo:** `index.html` (open directly in any browser, no server required)
+**Demo:** https://forgetme-nine.vercel.app/
 
 ---
 
